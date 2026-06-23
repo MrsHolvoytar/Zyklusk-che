@@ -3,17 +3,19 @@ import { useState, useMemo } from "react";
 import { S } from "./styles";
 import { SHOPPING_CATEGORIES } from "./data";
 import { useT } from "./useT";
+import FloralBanner from "./FloralBanner";
 
 function mergeItems(items) {
   const byName = new Map();
   for (const item of items) {
     const key = item.name.trim().toLowerCase();
     if (!byName.has(key)) {
-      byName.set(key, { name: item.name, category: item.category || "Gewürze & Sonstiges", amounts: [], recipes: new Set() });
+      byName.set(key, { name: item.name, category: item.category || "Gewürze & Sonstiges", amounts: [], recipes: new Set(), checked: item.checked || false });
     }
     const entry = byName.get(key);
     if (item.amount) entry.amounts.push(item.amount);
     if (item.recipe) entry.recipes.add(item.recipe);
+    if (item.checked) entry.checked = true;
   }
 
   return Array.from(byName.values()).map(entry => {
@@ -33,11 +35,11 @@ function mergeItems(items) {
       displayAmount = entry.amounts.join(" + ");
     }
 
-    return { name: entry.name, category: entry.category, amount: displayAmount, recipes: Array.from(entry.recipes) };
+    return { name: entry.name, category: entry.category, amount: displayAmount, recipes: Array.from(entry.recipes), checked: entry.checked };
   });
 }
 
-export default function ShoppingList({ items, onClear, lang }) {
+export default function ShoppingList({ items, onClear, onToggleChecked, onRemoveChecked, lang, accentColor, accentColor2 }) {
   const t = useT(lang);
   const [copied, setCopied] = useState(false);
   const merged = useMemo(() => mergeItems(items), [items]);
@@ -51,6 +53,7 @@ export default function ShoppingList({ items, onClear, lang }) {
     return map;
   }, [merged]);
 
+  const hasChecked = merged.some(i => i.checked);
   const listText = merged.map(i=>`${i.name}${i.amount?": "+i.amount:""}`).join("\n");
 
   const share = async () => {
@@ -64,34 +67,50 @@ export default function ShoppingList({ items, onClear, lang }) {
   };
 
   return (
-    <div style={S.card}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-        <h2 style={{ ...S.h2, margin:0 }}>{t("shoppingList")}</h2>
-        {items.length>0 && <button onClick={onClear} style={{ ...S.btnSm("transparent","#A6776B"), border:"1px solid rgba(166,119,107,0.3)" }}>{t("clear")}</button>}
-      </div>
-      {merged.length===0
-        ? <p style={{ color:"#9C8A78", textAlign:"center", padding:24, fontStyle:"italic", fontSize:14 }}>{t("nothingAdded")}</p>
-        : SHOPPING_CATEGORIES.filter(cat => byCategory[cat]?.length).map(cat => (
-          <div key={cat} style={{ marginBottom:18 }}>
-            <div style={{ fontWeight:700, color:"#A6927F", fontSize:11, textTransform:"uppercase", letterSpacing:0.8, marginBottom:8 }}>{cat}</div>
-            {byCategory[cat].map((item,i)=>(
-              <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"6px 0", borderBottom:"1px solid rgba(180,150,130,0.15)", fontSize:14, color:"#4A3D31" }}>
-                <span>{item.name}</span>
-                <span style={{ color:"#8E6F58", fontWeight:600 }}>{item.amount}</span>
-              </div>
-            ))}
+    <div>
+      <FloralBanner title={t("shoppingList")} accentColor={accentColor} accent2={accentColor2} />
+
+      <div style={S.card}>
+        {items.length>0 && (
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14 }}>
+            {hasChecked && <button onClick={onRemoveChecked} style={{ ...S.btnSm("transparent","#52684A"), border:"1px solid rgba(82,104,74,0.3)" }}>{t("markDone")}</button>}
+            <button onClick={onClear} style={{ ...S.btnSm("transparent","#A6776B"), border:"1px solid rgba(166,119,107,0.3)" }}>{t("clear")}</button>
           </div>
-        ))
-      }
-      {merged.length>0 && (
-        <div style={{ display:"flex", gap:9, marginTop:6 }}>
-          <button style={{ ...S.btn(), flex:1 }} onClick={share}>{t("share")}</button>
-          <button style={{ ...S.btnGhost(), flex:1, padding:"12px 20px" }}
-            onClick={()=>{ navigator.clipboard?.writeText(listText); setCopied(true); setTimeout(()=>setCopied(false),2000); }}>
-            {copied ? t("copied") : t("copy")}
-          </button>
-        </div>
-      )}
+        )}
+        {merged.length===0
+          ? <p style={{ color:"#9C8A78", textAlign:"center", padding:24, fontStyle:"italic", fontSize:14 }}>{t("nothingAdded")}</p>
+          : SHOPPING_CATEGORIES.filter(cat => byCategory[cat]?.length).map(cat => (
+            <div key={cat} style={{ marginBottom:18 }}>
+              <div style={{ fontWeight:700, color:"#A6927F", fontSize:11, textTransform:"uppercase", letterSpacing:0.8, marginBottom:8 }}>{cat}</div>
+              {byCategory[cat].map((item,i)=>(
+                <div key={i} onClick={()=>onToggleChecked(item.name)} style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"7px 0",
+                  borderBottom:"1px solid rgba(180,150,130,0.15)", cursor:"pointer",
+                }}>
+                  <div style={{
+                    width:18, height:18, borderRadius:6, border:`1.5px solid ${item.checked?"#9DB98A":"rgba(180,150,130,0.4)"}`,
+                    background: item.checked ? "#9DB98A" : "transparent",
+                    display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+                  }}>
+                    {item.checked && <span style={{ color:"#fff", fontSize:11 }}>✓</span>}
+                  </div>
+                  <span style={{ flex:1, fontSize:14, color: item.checked?"#B8A48E":"#4A3D31", textDecoration: item.checked?"line-through":"none" }}>{item.name}</span>
+                  <span style={{ color: item.checked?"#C9BBA8":"#8E6F58", fontWeight:600, fontSize:14, textDecoration: item.checked?"line-through":"none" }}>{item.amount}</span>
+                </div>
+              ))}
+            </div>
+          ))
+        }
+        {merged.length>0 && (
+          <div style={{ display:"flex", gap:9, marginTop:6 }}>
+            <button style={{ ...S.btn(), flex:1 }} onClick={share}>{t("share")}</button>
+            <button style={{ ...S.btnGhost(), flex:1, padding:"12px 20px" }}
+              onClick={()=>{ navigator.clipboard?.writeText(listText); setCopied(true); setTimeout(()=>setCopied(false),2000); }}>
+              {copied ? t("copied") : t("copy")}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

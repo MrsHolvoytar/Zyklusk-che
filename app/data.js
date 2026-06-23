@@ -11,6 +11,7 @@ export const PHASE_FOODS = {
     accentSoft: "#F0DCE5", accentIcon: "#8B3550",
     accent: "#C16B5A", light: "#F6E4E8", deep: "#5C2A4A",
     accentType: "stars",
+    bgColor: "#F3EEEA",
     seedCycling: null,
     foods: {
       "Früchte": ["Brombeeren","Heidelbeeren","Trauben","Cranberries","Wassermelone","Ananas"],
@@ -32,6 +33,7 @@ export const PHASE_FOODS = {
     accentSoft: "#E3EFD5", accentIcon: "#3E7A4A",
     accent: "#9DB98A", light: "#EBF1E5", deep: "#3E7A4A",
     accentType: "leaves",
+    bgColor: "#EFF0EA",
     seedCycling: { seeds: { de: ["Leinsamen","Kürbiskerne"], en: ["flax seeds","pumpkin seeds"] }, reason: { de: "Follikelphase (Tag 1–14): Leinsamen und Kürbiskerne unterstützen den Östrogenaufbau.", en: "Follicular phase (day 1–14): flax and pumpkin seeds support estrogen production." } },
     foods: {
       "Früchte": ["Avocado","Banane","Grapefruit","Zitrone","Limette","Orange","Papaya","Pflaume","Granatapfel"],
@@ -53,6 +55,7 @@ export const PHASE_FOODS = {
     accentSoft: "#FBE9D2", accentIcon: "#C1473F",
     accent: "#E0A04A", light: "#FBF1DE", deep: "#C1473F",
     accentType: "sun",
+    bgColor: "#F5F1EA",
     seedCycling: { seeds: { de: ["Leinsamen","Kürbiskerne"], en: ["flax seeds","pumpkin seeds"] }, reason: { de: "Ovulationsphase: weiter Leinsamen und Kürbiskerne zur Östrogenunterstützung.", en: "Ovulation phase: continue with flax and pumpkin seeds to support estrogen." } },
     foods: {
       "Früchte": ["Aprikose","Kokosnuss","Feigen","Melone","Himbeeren","Erdbeeren"],
@@ -74,6 +77,7 @@ export const PHASE_FOODS = {
     accentSoft: "#F0E5DC", accentIcon: "#7D4F68",
     accent: "#A993BD", light: "#F0EAF5", deep: "#7D4F68",
     accentType: "starsLines",
+    bgColor: "#F2EFEA",
     seedCycling: { seeds: { de: ["Sesam","Sonnenblumenkerne"], en: ["sesame seeds","sunflower seeds"] }, reason: { de: "Lutealphase (Tag 15–28): Sesam und Sonnenblumenkerne unterstützen den Progesteronaufbau.", en: "Luteal phase (day 15–28): sesame and sunflower seeds support progesterone production." } },
     foods: {
       "Früchte": ["Apfel","Datteln","Mango","Pfirsich","Birne"],
@@ -145,7 +149,11 @@ export const TRANSLATIONS = {
     dietType: "Ernährungsweise", omnivore: "Omnivor", vegetarian: "Vegetarisch", vegan: "Vegan", pescetarian: "Pescetarisch", glutenfree: "Glutenfrei",
     caloriesProtein: "Kalorien & Protein", optional: "Optional — leer lassen wenn kein Ziel gewünscht.",
     caloriesPerDay: "Kalorien pro Tag (kcal)", proteinPerDay: "Protein pro Tag (g)",
-    allergies: "Allergien", dislikes: "Abneigungen", dislikesDesc: "Zutaten die du nicht magst.",
+    allergies: "Allergien", allergiesOptional: "Optional — Enter zum Hinzufügen.",
+    dislikes: "Abneigungen", dislikesDesc: "Zutaten die du nicht magst.",
+    background: "Hintergrund", select: "Auswählen", replace: "Ersetzen", selected: "Ausgewählt",
+    toShoppingList: "Zur Einkaufsliste", markDone: "Erledigte entfernen",
+    quickJump: "Schnell springen",
   },
   en: {
     greeting: "Good day",
@@ -178,6 +186,10 @@ export const TRANSLATIONS = {
     dietType: "Diet", omnivore: "Omnivore", vegetarian: "Vegetarian", vegan: "Vegan", pescetarian: "Pescetarian", glutenfree: "Gluten-free",
     caloriesProtein: "Calories & protein", optional: "Optional — leave empty if you have no target.",
     caloriesPerDay: "Calories per day (kcal)", proteinPerDay: "Protein per day (g)",
-    allergies: "Allergies", dislikes: "Dislikes", dislikesDesc: "Ingredients you don't like.",
+    allergies: "Allergies", allergiesOptional: "Optional — press Enter to add.",
+    dislikes: "Dislikes", dislikesDesc: "Ingredients you don't like.",
+    background: "Background", select: "Select", replace: "Replace", selected: "Selected",
+    toShoppingList: "To shopping list", markDone: "Remove checked items",
+    quickJump: "Jump to day",
   }
 };

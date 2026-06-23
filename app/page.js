@@ -42,7 +42,7 @@ export default function ZyklusKueche() {
   const t = useT(lang);
   const phase = getPhase(cycleDay);
   const p = PHASE_FOODS[phase];
-  const phaseColor = { deep: p.deep, darker: p.gradient.match(/#[0-9A-Fa-f]{6}/)[0], shadow: p.shadow };
+  const phaseColor = { deep: p.deep, darker: p.gradient.match(/#[0-9A-Fa-f]{6}/g)[1], shadow: p.shadow };
 
   // Phasenübergreifende Mehrtagesplanung: für jeden Tag im Zeitraum wird die
   // tatsächliche Phase an diesem Tag berechnet, statt pauschal die Phase von heute zu nutzen.
@@ -77,23 +77,30 @@ Respond ONLY with a JSON array containing exactly one recipe object:
 [{"name":"...","meal":"${meal}","description":"1-2 sentences","kcal":400,"protein":25,"time":"30 min","basePortions":${profile.portions},"mainIngredients":["ingredient1","ingredient2"],"seedCycling":"short note or null","ingredients":["200g ingredient1","1 tbsp ingredient2"],"ingredientCategories":{"ingredient1":"Obst & Gemüse"},"steps":["step 1","step 2","step 3"]}]`;
   };
 
+  // Alle Rezept-Anfragen parallel statt nacheinander abschicken — deutlich schneller
+  // bei mehreren Tagen/Mahlzeiten, da nicht mehr auf jede einzelne Antwort gewartet wird.
   const generate = async (prefs, fridge=[]) => {
     setShowModal(false); setShowFridgeModal(false);
     setLoading(true); setRecipes([]); setView("rezepte");
-    const all = [];
 
+    const tasks = [];
     for (const meal of prefs.meals) {
-      setLoadingMeal(meal);
       for (let dayOffset = 0; dayOffset < prefs.days; dayOffset++) {
-        try {
-          const parsed = await fetchRecipes(buildPromptForDay(meal, dayOffset, prefs.moods, fridge));
-          if (parsed?.[0]) {
-            all.push({ ...parsed[0], meal, rating: null, id: `${Date.now()}-${Math.random()}` });
-            setRecipes([...all]);
-          }
-        } catch(e) { console.error(meal, dayOffset, e); }
+        tasks.push({ meal, dayOffset });
       }
     }
+
+    setLoadingMeal(prefs.meals.join(", "));
+
+    const results = await Promise.all(tasks.map(async ({ meal, dayOffset }) => {
+      try {
+        const parsed = await fetchRecipes(buildPromptForDay(meal, dayOffset, prefs.moods, fridge));
+        if (parsed?.[0]) return { ...parsed[0], meal, status: null, id: `${Date.now()}-${Math.random()}` };
+      } catch(e) { console.error(meal, dayOffset, e); }
+      return null;
+    }));
+
+    setRecipes(results.filter(Boolean));
     setLoadingMeal(""); setLoading(false);
   };
 
@@ -105,25 +112,28 @@ Respond ONLY with a JSON array containing exactly one recipe object:
     try {
       const parsed = await fetchRecipes(prompt);
       if (parsed?.[0]) {
-        const replacement = { ...parsed[0], meal: oldRecipe.meal, rating: null, id: `${Date.now()}-${Math.random()}` };
+        const replacement = { ...parsed[0], meal: oldRecipe.meal, status: null, id: `${Date.now()}-${Math.random()}` };
         setRecipes(prev => prev.map(r => r.id === oldRecipe.id ? replacement : r));
       }
     } catch(e) { console.error(e); }
   };
 
-  const rateRecipe = (recipeId, rating) => {
-    setRecipes(prev => prev.map(r => r.id === recipeId ? { ...r, rating } : r));
-    const recipe = recipes.find(r => r.id === recipeId);
-    if (!recipe) return;
+  // "Auswählen": Rezept landet fest in Einkaufsliste + bleibt im Heute-Tab sichtbar, plus Favorit merken
+  const selectRecipe = (recipe) => {
+    setRecipes(prev => prev.map(r => r.id === recipe.id ? { ...r, status: "selected" } : r));
+    addToList(recipe.ingredients || [], recipe.name, recipe.ingredientCategories || {});
     setArchive(prev => {
-      const withoutThis = prev.filter(a => !(a.recipe.id === recipeId));
-      if (rating === null) return withoutThis;
-      return [...withoutThis, { phase, recipe: { ...recipe, rating } }];
+      const withoutThis = prev.filter(a => a.recipe.id !== recipe.id);
+      return [...withoutThis, { phase, recipe: { ...recipe, rating: "like" } }];
     });
   };
 
-  const notForMe = (recipe) => {
-    rateRecipe(recipe.id, "dislike");
+  // "Ersetzen": Rezept wird sofort durch ein neues für dieselbe Mahlzeit ausgetauscht
+  const replaceRecipe = (recipe) => {
+    setArchive(prev => {
+      const withoutThis = prev.filter(a => a.recipe.id !== recipe.id);
+      return [...withoutThis, { phase, recipe: { ...recipe, rating: "dislike" } }];
+    });
     generateReplacement(recipe);
   };
 
@@ -131,16 +141,27 @@ Respond ONLY with a JSON array containing exactly one recipe object:
     const items = ingredients.map(ing => {
       const m = ing.match(/^([\d.,]+\s*(?:g|kg|ml|l|EL|TL|tbsp|tsp|Stk|Stück|Prise|Bund|Tasse|Scheibe[n]?)?)\s+(.+)$/i);
       const name = m?m[2]:ing;
-      return { name, amount: m?m[1]:"", recipe: recipeName, category: categories[name] };
+      return { name, amount: m?m[1]:"", recipe: recipeName, category: categories[name], checked: false };
     });
     setShoppingList(prev=>[...prev,...items]);
   };
 
+  const toggleChecked = (name) => {
+    setShoppingList(prev => prev.map(item => item.name === name ? { ...item, checked: !item.checked } : item));
+  };
+
+  const removeChecked = () => {
+    setShoppingList(prev => prev.filter(item => !item.checked));
+  };
+
   if (!profileHydrated) return null;
-  if (!profile) return <div style={S.root}><Onboarding onDone={setProfile} lang={lang} /></div>;
+  if (!profile) return <div style={{ ...S.root, background: "#F2EFEA" }}><Onboarding onDone={setProfile} lang={lang} /></div>;
+
+  // Selektierte Rezepte erscheinen im Heute-Tab als "als nächstes geplant"
+  const selectedRecipes = recipes.filter(r => r.status === "selected");
 
   return (
-    <div style={S.root}>
+    <div style={{ ...S.root, background: p.bgColor, transition: "background 0.3s" }}>
       {showModal && <PlanModal phase={phase} p={p} lang={lang} onSubmit={prefs=>generate(prefs)} onClose={()=>setShowModal(false)} />}
       {showFridgeModal && <PlanModal phase={phase} p={p} lang={lang} onSubmit={prefs=>generate(prefs,fridgeItems)} onClose={()=>setShowFridgeModal(false)} />}
 
@@ -151,13 +172,13 @@ Respond ONLY with a JSON array containing exactly one recipe object:
           <div style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:20, fontWeight:600, color:"#3A2F28", marginBottom:14 }}>
             {t("greeting")}{profile.name ? `, ${profile.name}` : ""}
           </div>
-          <PhaseTeaser phase={phase} p={p} cycleDay={cycleDay} lang={lang} onOpenPhase={()=>setView("phase")} />
+          <PhaseTeaser phase={phase} p={p} cycleDay={cycleDay} setCycleDay={setCycleDay} lang={lang} onOpenPhase={()=>setView("phase")} />
 
           <div style={{ fontSize:10, letterSpacing:2, color:"#9C8A78", textTransform:"uppercase", marginBottom:9, fontWeight:700 }}>{t("nextPlanned")}</div>
-          {recipes.length === 0 ? (
+          {selectedRecipes.length === 0 ? (
             <p style={{ ...S.sub, fontStyle:"italic" }}>{t("nothingPlanned")}</p>
           ) : (
-            recipes.slice(0, 5).map((r,i) => (
+            selectedRecipes.map((r,i) => (
               <RecipeCard key={r.id || i} recipe={r} p={p} profile={profile} lang={lang} compact
                 onAddToList={addToList} onClick={()=>setView("rezepte")} />
             ))
@@ -173,7 +194,7 @@ Respond ONLY with a JSON array containing exactly one recipe object:
         <div>
           <RecipesPage phase={phase} p={p} cycleDay={cycleDay} setCycleDay={setCycleDay} lang={lang}
             recipes={recipes} loading={loading} loadingMeal={loadingMeal} onShowModal={()=>setShowModal(true)}
-            profile={profile} onAddToList={addToList} onRate={rateRecipe} onNotForMe={notForMe} archive={archive} />
+            profile={profile} onAddToList={addToList} onSelectRecipe={selectRecipe} onReplaceRecipe={replaceRecipe} archive={archive} />
 
           <div style={{ ...S.card, marginTop:16 }}>
             <h2 style={{ ...S.h2, marginBottom:4 }}>{t("whatDoIHave")}</h2>
@@ -185,12 +206,16 @@ Respond ONLY with a JSON array containing exactly one recipe object:
               <button style={S.btnSm()} onClick={()=>{if(fridgeInput.trim()){setFridgeItems(p=>[...p,fridgeInput.trim()]);setFridgeInput("");}}}>+</button>
             </div>
             <div style={{ marginBottom:14 }}>{fridgeItems.map((item,i)=><Tag key={i} label={item} onRemove={()=>setFridgeItems(p=>p.filter((_,j)=>j!==i))} />)}</div>
-            {fridgeItems.length>0 && <button style={S.btn(`linear-gradient(135deg,${p.accent},${p.deep})`)} onClick={()=>setShowFridgeModal(true)} disabled={loading}>{t("planFromFridge")}</button>}
+            {fridgeItems.length>0 && <button style={S.btn(p.deep)} onClick={()=>setShowFridgeModal(true)} disabled={loading}>{t("planFromFridge")}</button>}
           </div>
         </div>
       )}
 
-      {view === "liste" && <ShoppingList items={shoppingList} onClear={()=>setShoppingList([])} lang={lang} />}
+      {view === "liste" && (
+        <ShoppingList items={shoppingList} onClear={()=>setShoppingList([])} lang={lang}
+          onToggleChecked={toggleChecked} onRemoveChecked={removeChecked}
+          accentColor={p.accent} accentColor2={p.deep} />
+      )}
 
       <BottomNav active={view} onChange={setView} phaseColor={phaseColor} lang={lang} />
     </div>

@@ -24,18 +24,18 @@ export function LangSwitch({ lang, onChange }) {
 }
 
 // Kompakter Phase-Teaser auf der Heute-Seite — Ernährungs-Teaser statt allgemeiner Stimmung,
-// klickbar zur ausführlichen Phase-Seite.
-export function PhaseTeaser({ phase, p, cycleDay, lang, onOpenPhase }) {
+// klickbar zur ausführlichen Phase-Seite. Mit Schieberegler zum schnellen Springen zwischen Tagen.
+export function PhaseTeaser({ phase, p, cycleDay, setCycleDay, lang, onOpenPhase }) {
   const t = useT(lang);
   return (
-    <div onClick={onOpenPhase} style={{
-      cursor:"pointer", background:p.gradient, borderRadius:26, padding:0,
+    <div style={{
+      background:p.gradient, borderRadius:26, padding:0,
       position:"relative", overflow:"hidden", marginBottom:18,
-      boxShadow:`0 10px 26px ${p.shadow}`, minHeight:150,
+      boxShadow:`0 10px 26px ${p.shadow}`, minHeight:170,
     }}>
-      <PhaseAccent type={p.accentType} height={200} />
+      <PhaseAccent type={p.accentType} height={220} />
       <div style={{ position:"relative", padding:"20px 22px" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div onClick={onOpenPhase} style={{ cursor:"pointer", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
           <div>
             <div style={{ fontSize:10, letterSpacing:2, color:p.eyebrow, textTransform:"uppercase", opacity:0.85, marginBottom:5 }}>
               {t("dayLabel")} {cycleDay} · {loc(p.subtitle, lang)}
@@ -48,6 +48,14 @@ export function PhaseTeaser({ phase, p, cycleDay, lang, onOpenPhase }) {
             flexShrink:0, marginTop:2 }}>
             <Icons.ChevronRight size={15} color={p.textBright} />
           </div>
+        </div>
+        <div style={{ marginTop:16, display:"flex", alignItems:"center", gap:10 }}
+          onClick={(e)=>e.stopPropagation()}>
+          <span style={{ fontSize:10, color:p.eyebrow, opacity:0.8 }}>1</span>
+          <input type="range" min={1} max={35} value={cycleDay}
+            onChange={e=>setCycleDay(+e.target.value)}
+            style={{ flex:1, accentColor:"rgba(255,255,255,0.85)" }} />
+          <span style={{ fontSize:10, color:p.eyebrow, opacity:0.8 }}>35</span>
         </div>
       </div>
     </div>
