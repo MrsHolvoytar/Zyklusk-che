@@ -13,7 +13,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#A6927F",
+  themeColor: "#8E6F58",
 };
 
 export default function RootLayout({ children }) {
@@ -25,9 +25,11 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Zyklus Küche" />
-        <meta name="theme-color" content="#A6927F" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body style={{ margin: 0, padding: 0, background: "#F5EFE6" }}>
+      <body style={{ margin: 0, padding: 0, background: "#EDE6DC" }}>
         {children}
         <script dangerouslySetInnerHTML={{__html: `
           if ('serviceWorker' in navigator) {

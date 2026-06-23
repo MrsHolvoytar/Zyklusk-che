@@ -1,31 +1,33 @@
 "use client";
 import { useState } from "react";
-import { S, PhaseBadge, Spinner } from "./styles";
+import { S, Spinner, Icons } from "./styles";
+import { useT } from "./useT";
+import { loc } from "./data";
 
-async function fetchWarum(ingredients, phase) {
+async function fetchWarum(ingredients, phaseLabel, lang) {
   const res = await fetch("/api/warum", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ingredients, phase }),
+    body: JSON.stringify({ ingredients, phase: phaseLabel, lang }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data.text;
 }
 
-export default function RecipeCard({ recipe, phase, phaseFoods, profile, onAddToList, onRate, onNotForMe, selected, onToggleSelect, selectMode }) {
+export default function RecipeCard({ recipe, p, profile, onAddToList, onRate, onNotForMe, lang, compact=false, onClick }) {
+  const t = useT(lang);
   const [open, setOpen] = useState(false);
   const [why, setWhy] = useState("");
   const [loadingWhy, setLoadingWhy] = useState(false);
   const [portions, setPortions] = useState(recipe.basePortions || profile.portions);
-  const p = phaseFoods[phase];
 
   const loadWhy = async () => {
     if (why) { setOpen(o=>!o); return; }
     setOpen(true); setLoadingWhy(true);
     try {
-      const text = await fetchWarum(recipe.mainIngredients?.join(", "), p.label);
+      const text = await fetchWarum(recipe.mainIngredients?.join(", "), loc(p.label, lang), lang);
       setWhy(text);
-    } catch(e) { setWhy("Fehler: " + e.message); }
+    } catch(e) { setWhy("Error: " + e.message); }
     setLoadingWhy(false);
   };
 
@@ -40,94 +42,108 @@ export default function RecipeCard({ recipe, phase, phaseFoods, profile, onAddTo
   const liked = recipe.rating === "like";
   const disliked = recipe.rating === "dislike";
 
-  return (
-    <div style={{ ...S.card, borderTop:`3px solid ${p.accent}`, marginBottom:16, position:"relative",
-      opacity: disliked ? 0.5 : 1, transition: "opacity .25s" }}>
-
-      {selectMode && (
-        <div onClick={onToggleSelect} style={{
-          position:"absolute", top:18, right:18, width:24, height:24, borderRadius:"50%",
-          border: `2px solid ${selected ? p.deep : "rgba(180,150,130,0.4)"}`,
-          background: selected ? p.deep : "transparent", cursor:"pointer",
-          display:"flex", alignItems:"center", justifyContent:"center",
-        }}>
-          {selected && <span style={{ color:"#FFFBF5", fontSize:13 }}>✓</span>}
+  // Kompakte Listenzeile (für "Heute" Vorschau)
+  if (compact) {
+    return (
+      <div onClick={onClick} style={{
+        cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"space-between",
+        background:"#FFFDF9", border:"1px solid rgba(180,150,130,0.22)", borderRadius:18,
+        padding:"12px 14px 12px 16px", marginBottom:8,
+      }}>
+        <div style={{ display:"flex", alignItems:"center", gap:11 }}>
+          <div style={{ width:8, height:8, borderRadius:"50%", background:`linear-gradient(135deg,${p.accent},${p.deep})` }} />
+          <span style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:14.5, color:"#3A2F28", fontWeight:500 }}>{recipe.name}</span>
         </div>
-      )}
-
-      <div style={{ display:"flex", justifyContent:"space-between", gap:10, paddingRight: selectMode ? 32 : 0 }}>
-        <div style={{ flex:1 }}>
-          <h3 style={{ margin:"0 0 9px", color:"#3A2F28", fontSize:17, fontWeight:600 }}>{recipe.name}</h3>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            <PhaseBadge phase={phase} phaseFoods={phaseFoods} />
-            {recipe.meal && <span style={S.meta}>{recipe.meal}</span>}
-            {recipe.kcal && <span style={S.meta}>{recipe.kcal} kcal</span>}
-            {recipe.protein && <span style={S.meta}>{recipe.protein}g P</span>}
-            {recipe.time && <span style={S.meta}>{recipe.time}</span>}
-            {liked && <span style={{ ...S.meta, background: p.light, color: p.deep }}>Favorit</span>}
+        <div style={{ display:"flex", gap:8 }}>
+          <div onClick={(e)=>{e.stopPropagation(); onAddToList(scaled||[], recipe.name);}} style={{
+            width:30, height:30, borderRadius:"50%", background:p.accentSoft,
+            display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <Icons.Basket size={14} color={p.accentIcon} />
           </div>
         </div>
-        {!selectMode && (
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <button style={S.iBtn} onClick={()=>setPortions(p=>Math.max(1,p-1))}>−</button>
-            <span style={{ minWidth:20, textAlign:"center", fontWeight:700, fontFamily:"system-ui,sans-serif" }}>{portions}</span>
-            <button style={S.iBtn} onClick={()=>setPortions(p=>p+1)}>+</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: p.gradient, borderRadius:22, padding:0, overflow:"hidden",
+      position:"relative", boxShadow:`0 6px 18px ${p.shadow}`, marginBottom:14,
+      opacity: disliked ? 0.45 : 1,
+    }}>
+      <svg width="140" height="140" viewBox="0 0 140 140" style={{ position:"absolute", right:-25, top:-25, opacity:0.16 }}>
+        <circle cx="70" cy="70" r="65" fill="none" stroke="#fff" strokeWidth="3"/>
+        <circle cx="70" cy="70" r="45" fill="none" stroke="#fff" strokeWidth="2"/>
+      </svg>
+
+      <div style={{ position:"relative", padding:"18px 18px 16px" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10, gap:10 }}>
+          <div style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:17, fontWeight:600, color:p.textBright, flex:1 }}>{recipe.name}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:7, background:"rgba(255,255,255,0.18)", borderRadius:999, padding:"4px 6px", flexShrink:0 }}>
+            <span onClick={()=>setPortions(p=>Math.max(1,p-1))} style={{ color:p.textBright, fontSize:13, width:18, textAlign:"center", cursor:"pointer" }}>−</span>
+            <span style={{ color:p.textBright, fontWeight:700, fontSize:14 }}>{portions}</span>
+            <span onClick={()=>setPortions(p=>p+1)} style={{ color:p.textBright, fontSize:13, width:18, textAlign:"center", cursor:"pointer" }}>+</span>
+          </div>
+        </div>
+
+        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+          {recipe.meal && <span style={{ background:"rgba(255,255,255,0.16)", color:p.eyebrow, fontSize:11, padding:"3px 11px", borderRadius:999, border:"1px solid rgba(255,255,255,0.25)" }}>{recipe.meal}</span>}
+          {recipe.kcal && <span style={{ background:"rgba(255,255,255,0.16)", color:p.eyebrow, fontSize:11, padding:"3px 11px", borderRadius:999, border:"1px solid rgba(255,255,255,0.25)" }}>{recipe.kcal} kcal</span>}
+          {recipe.protein && <span style={{ background:"rgba(255,255,255,0.16)", color:p.eyebrow, fontSize:11, padding:"3px 11px", borderRadius:999, border:"1px solid rgba(255,255,255,0.25)" }}>{recipe.protein}g</span>}
+          {recipe.time && <span style={{ background:"rgba(255,255,255,0.16)", color:p.eyebrow, fontSize:11, padding:"3px 11px", borderRadius:999, border:"1px solid rgba(255,255,255,0.25)" }}>{recipe.time}</span>}
+          {liked && <span style={{ background:"rgba(255,255,255,0.28)", color:p.textBright, fontSize:11, padding:"3px 11px", borderRadius:999, fontWeight:700 }}>{t("favorite")}</span>}
+        </div>
+
+        {recipe.description && <div style={{ fontSize:13, color:p.eyebrow, lineHeight:1.5, marginBottom:14 }}>{recipe.description}</div>}
+
+        {recipe.seedCycling && (
+          <div style={{ background:"rgba(255,255,255,0.13)", borderRadius:13, padding:"10px 13px", marginBottom:14, borderLeft:"3px solid rgba(255,255,255,0.4)" }}>
+            <span style={{ fontSize:12, color:p.textBright }}><b>Seed Cycling:</b> {recipe.seedCycling}</span>
+          </div>
+        )}
+
+        {scaled?.length > 0 && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:p.eyebrow, textTransform:"uppercase", letterSpacing:0.8, marginBottom:6 }}>{t("ingredients")}</div>
+            <ul style={{ margin:0, paddingLeft:18 }}>
+              {scaled.map((ing,i)=><li key={i} style={{ fontSize:13.5, color:p.textBright, marginBottom:3 }}>{ing}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {recipe.steps?.length > 0 && (
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:p.eyebrow, textTransform:"uppercase", letterSpacing:0.8, marginBottom:6 }}>{t("preparation")}</div>
+            <ol style={{ margin:0, paddingLeft:18 }}>
+              {recipe.steps.map((s,i)=><li key={i} style={{ fontSize:13.5, color:p.textBright, marginBottom:5, lineHeight:1.5 }}>{s}</li>)}
+            </ol>
+          </div>
+        )}
+
+        <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+          <div onClick={loadWhy} style={{ flex:1, textAlign:"center", background:"rgba(255,255,255,0.16)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:13, padding:"9px 0", color:p.textBright, fontSize:12.5, fontWeight:600, cursor:"pointer" }}>{t("whyNow")}</div>
+          <div onClick={()=>onAddToList(scaled||[], recipe.name)} style={{ flex:1, textAlign:"center", background:"#FFFBF5", borderRadius:13, padding:"9px 0", color:p.deep, fontSize:12.5, fontWeight:600, cursor:"pointer" }}>{t("toList")}</div>
+        </div>
+
+        <div style={{ display:"flex", gap:8 }}>
+          <div onClick={()=>onRate(liked?null:"like")} style={{ flex:1, textAlign:"center", background:"rgba(255,255,255,0.5)", border:"1px solid rgba(255,255,255,0.4)", borderRadius:13, padding:"10px 0", color:p.deep, fontSize:12.5, fontWeight:600, cursor:"pointer" }}>
+            {liked ? t("saved") : t("likeIt")}
+          </div>
+          <div onClick={onNotForMe} style={{ flex:1, textAlign:"center", background:"rgba(255,255,255,0.5)", border:"1px solid rgba(255,255,255,0.4)", borderRadius:13, padding:"10px 0", color:"#7A4F42", fontSize:12.5, fontWeight:600, cursor:"pointer" }}>
+            {t("notForMe")}
+          </div>
+        </div>
+
+        {open && (
+          <div style={{ marginTop:13, background:"rgba(255,255,255,0.15)", borderRadius:14, padding:15, borderLeft:"3px solid rgba(255,255,255,0.4)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
+              <span style={{ fontWeight:700, color:p.textBright, fontSize:11, textTransform:"uppercase", letterSpacing:0.8 }}>{t("whyNow")}</span>
+              <span onClick={()=>setOpen(false)} style={{ cursor:"pointer", color:p.eyebrow }}>×</span>
+            </div>
+            {loadingWhy ? <Spinner text="..." /> : <p style={{ margin:0, fontSize:13, color:p.textBright, lineHeight:1.6 }}>{why}</p>}
           </div>
         )}
       </div>
-
-      {recipe.description && <p style={{ color:"#7A6856", fontSize:14, margin:"11px 0 0", lineHeight:1.6, fontFamily:"system-ui,sans-serif" }}>{recipe.description}</p>}
-
-      {recipe.seedCycling && (
-        <div style={{ margin:"11px 0 0", padding:"9px 13px", background:p.light, borderRadius:12, fontSize:13, color:p.deep, fontFamily:"system-ui,sans-serif", borderLeft:`3px solid ${p.accent}` }}>
-          <b>Seed Cycling:</b> {recipe.seedCycling}
-        </div>
-      )}
-
-      {scaled?.length>0 && (
-        <div style={{ marginTop:15 }}>
-          <div style={{ fontWeight:700, color:p.deep, fontSize:11, textTransform:"uppercase", letterSpacing:.8, marginBottom:7, fontFamily:"system-ui,sans-serif" }}>Zutaten</div>
-          <ul style={{ margin:0, paddingLeft:18 }}>{scaled.map((ing,i)=><li key={i} style={{ fontSize:14, color:"#4A3D31", marginBottom:3, fontFamily:"system-ui,sans-serif" }}>{ing}</li>)}</ul>
-        </div>
-      )}
-
-      {recipe.steps?.length>0 && (
-        <div style={{ marginTop:15 }}>
-          <div style={{ fontWeight:700, color:p.deep, fontSize:11, textTransform:"uppercase", letterSpacing:.8, marginBottom:7, fontFamily:"system-ui,sans-serif" }}>Zubereitung</div>
-          <ol style={{ margin:0, paddingLeft:18 }}>{recipe.steps.map((s,i)=><li key={i} style={{ fontSize:14, color:"#4A3D31", marginBottom:6, lineHeight:1.55, fontFamily:"system-ui,sans-serif" }}>{s}</li>)}</ol>
-        </div>
-      )}
-
-      {!selectMode && (
-        <>
-          <div style={{ marginTop:15, display:"flex", gap:8, flexWrap:"wrap" }}>
-            <button onClick={loadWhy} style={{ ...S.btnSm(p.light, p.deep), border:`1px solid ${p.accent}` }}>Warum jetzt?</button>
-            <button onClick={()=>onAddToList(scaled||[], recipe.name)} style={{ ...S.btnSm("rgba(110,139,94,0.12)","#52684A"), border:"1px solid #9DB98A" }}>Zur Einkaufsliste</button>
-          </div>
-
-          <div style={{ marginTop:10, display:"flex", gap:8 }}>
-            <button onClick={()=>onRate(liked ? null : "like")}
-              style={{ ...S.btnSm(liked ? p.deep : "transparent", liked ? "#FFFBF5" : "#8A7765"),
-                border: `1px solid ${liked ? p.deep : "rgba(180,150,130,0.3)"}`, flex:1 }}>
-              {liked ? "Gemerkt" : "Mag ich"}
-            </button>
-            <button onClick={onNotForMe}
-              style={{ ...S.btnSm("transparent","#A6776B"), border:"1px solid rgba(166,119,107,0.3)", flex:1 }}>
-              Nicht für mich
-            </button>
-          </div>
-        </>
-      )}
-
-      {open && (
-        <div style={{ marginTop:13, background:p.light, borderRadius:14, padding:15, borderLeft:`3px solid ${p.accent}` }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
-            <span style={{ fontWeight:700, color:p.deep, fontSize:11, textTransform:"uppercase", letterSpacing:.8, fontFamily:"system-ui,sans-serif" }}>Warum jetzt?</span>
-            <span onClick={()=>setOpen(false)} style={{ cursor:"pointer", color:"#9C8A78" }}>×</span>
-          </div>
-          {loadingWhy?<Spinner text="Recherchiere…" />:<p style={{ margin:0, fontSize:14, color:"#4A3D31", lineHeight:1.65, fontFamily:"system-ui,sans-serif" }}>{why}</p>}
-        </div>
-      )}
     </div>
   );
 }

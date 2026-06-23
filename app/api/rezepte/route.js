@@ -10,7 +10,7 @@ export async function POST(request) {
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4000,
-      system: "Du bist eine Ernährungsexpertin für zyklusbasierte Ernährung. Antworte NUR mit einem validen JSON-Array, kein Text davor oder danach, kein Markdown, keine Erklärungen.",
+      system: "You are a nutrition expert for cycle-based eating. Respond ONLY with a valid JSON array, no text before or after, no markdown, no explanations.",
       messages: [{ role: "user", content: prompt }],
     });
 

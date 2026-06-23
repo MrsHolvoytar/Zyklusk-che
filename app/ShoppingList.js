@@ -2,10 +2,8 @@
 import { useState, useMemo } from "react";
 import { S } from "./styles";
 import { SHOPPING_CATEGORIES } from "./data";
+import { useT } from "./useT";
 
-// Versucht, gleiche Zutaten zusammenzuzählen. Bei unterschiedlichen Einheiten
-// (z.B. "2 Eier" + "200g Eier") werden beide Mengen nebeneinander gezeigt,
-// statt eine möglicherweise falsche Umrechnung vorzunehmen.
 function mergeItems(items) {
   const byName = new Map();
   for (const item of items) {
@@ -19,7 +17,6 @@ function mergeItems(items) {
   }
 
   return Array.from(byName.values()).map(entry => {
-    // Versuche gleiche Einheiten zu addieren
     const parsed = entry.amounts.map(a => {
       const m = a.match(/^([\d.,]+)\s*(.*)$/);
       return m ? { num: parseFloat(m[1].replace(",",".")), unit: m[2].trim() } : null;
@@ -40,7 +37,8 @@ function mergeItems(items) {
   });
 }
 
-export default function ShoppingList({ items, onClear }) {
+export default function ShoppingList({ items, onClear, lang }) {
+  const t = useT(lang);
   const [copied, setCopied] = useState(false);
   const merged = useMemo(() => mergeItems(items), [items]);
 
@@ -57,8 +55,8 @@ export default function ShoppingList({ items, onClear }) {
 
   const share = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: "Einkaufsliste — Zyklus Küche", text: listText }); }
-      catch(e) { /* abgebrochen */ }
+      try { await navigator.share({ title: t("shoppingList"), text: listText }); }
+      catch(e) {}
     } else {
       navigator.clipboard?.writeText(listText);
       setCopied(true); setTimeout(()=>setCopied(false), 2000);
@@ -68,16 +66,16 @@ export default function ShoppingList({ items, onClear }) {
   return (
     <div style={S.card}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
-        <h2 style={{ ...S.h2, margin:0 }}>Einkaufsliste</h2>
-        {items.length>0&&<button onClick={onClear} style={{ ...S.btnSm("transparent","#A6776B"), border:"1px solid rgba(166,119,107,0.3)" }}>Leeren</button>}
+        <h2 style={{ ...S.h2, margin:0 }}>{t("shoppingList")}</h2>
+        {items.length>0 && <button onClick={onClear} style={{ ...S.btnSm("transparent","#A6776B"), border:"1px solid rgba(166,119,107,0.3)" }}>{t("clear")}</button>}
       </div>
       {merged.length===0
-        ? <p style={{ color:"#9C8A78", textAlign:"center", padding:24, fontFamily:"system-ui,sans-serif", fontSize:14, fontStyle:"italic" }}>Noch nichts hinzugefügt.</p>
+        ? <p style={{ color:"#9C8A78", textAlign:"center", padding:24, fontStyle:"italic", fontSize:14 }}>{t("nothingAdded")}</p>
         : SHOPPING_CATEGORIES.filter(cat => byCategory[cat]?.length).map(cat => (
           <div key={cat} style={{ marginBottom:18 }}>
-            <div style={{ fontWeight:700, color:"#A6927F", fontSize:11, textTransform:"uppercase", letterSpacing:.8, marginBottom:8, fontFamily:"system-ui,sans-serif" }}>{cat}</div>
+            <div style={{ fontWeight:700, color:"#A6927F", fontSize:11, textTransform:"uppercase", letterSpacing:0.8, marginBottom:8 }}>{cat}</div>
             {byCategory[cat].map((item,i)=>(
-              <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"6px 0", borderBottom:"1px solid rgba(180,150,130,0.15)", fontSize:14, color:"#4A3D31", fontFamily:"system-ui,sans-serif" }}>
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"6px 0", borderBottom:"1px solid rgba(180,150,130,0.15)", fontSize:14, color:"#4A3D31" }}>
                 <span>{item.name}</span>
                 <span style={{ color:"#8E6F58", fontWeight:600 }}>{item.amount}</span>
               </div>
@@ -87,10 +85,10 @@ export default function ShoppingList({ items, onClear }) {
       }
       {merged.length>0 && (
         <div style={{ display:"flex", gap:9, marginTop:6 }}>
-          <button style={{ ...S.btn(), flex:1 }} onClick={share}>Teilen</button>
+          <button style={{ ...S.btn(), flex:1 }} onClick={share}>{t("share")}</button>
           <button style={{ ...S.btnGhost(), flex:1, padding:"12px 20px" }}
             onClick={()=>{ navigator.clipboard?.writeText(listText); setCopied(true); setTimeout(()=>setCopied(false),2000); }}>
-            {copied ? "Kopiert" : "Kopieren"}
+            {copied ? t("copied") : t("copy")}
           </button>
         </div>
       )}
