@@ -15,7 +15,7 @@ export const PHASE_FOODS = {
     seedCycling: null,
     foods: {
       "Früchte": ["Brombeeren","Heidelbeeren","Trauben","Cranberries","Wassermelone","Ananas"],
-      "Gemüse": ["Randen","Pilze","Wasserkastanien","Grünkohl"],
+      "Gemüse": ["Randen","Klette","Algen (Dulse)","Algen (Hijiki)","Grünkohl","Algen (Kelp)","Algen (Kombu)","Pilze","Wasserkastanien"],
       "Nüsse & Samen": ["Kastanien","Chiasamen","Sesam","Sonnenblumenkerne"],
       "Fisch & Fleisch": ["Ente","Schwein","Muscheln","Krabbe","Hummer","Sardinen","Jakobsmuscheln","Tintenfisch"],
       "Hülsenfrüchte": ["Adzukibohnen","Sojabohnen","Schwarze Bohnen","Kidneybohnen"],
@@ -36,11 +36,11 @@ export const PHASE_FOODS = {
     bgColor: "#EFF0EA",
     seedCycling: { seeds: { de: ["Leinsamen","Kürbiskerne"], en: ["flax seeds","pumpkin seeds"] }, reason: { de: "Follikelphase (Tag 1–14): Leinsamen und Kürbiskerne unterstützen den Östrogenaufbau.", en: "Follicular phase (day 1–14): flax and pumpkin seeds support estrogen production." } },
     foods: {
-      "Früchte": ["Avocado","Banane","Grapefruit","Zitrone","Limette","Orange","Papaya","Pflaume","Granatapfel"],
-      "Gemüse": ["Artischocke","Brokkoli","Karotte","Gurke","Knoblauch","Salat","Petersilie","Erbsen","Rhabarber","Zucchini"],
+      "Früchte": ["Avocado","Banane","Grapefruit","Zitrone","Limette","Orange","Papaya","Pflaume","Granatapfel","Sauerkirsche"],
+      "Gemüse": ["Artischocke","Brokkoli","Karotte","Gurke","Knoblauch","Salat","Petersilie","Erbsen","Rhabarber","Grüne Bohnen","Zucchini"],
       "Nüsse & Samen": ["Paranüsse","Cashews","Kürbiskerne"],
-      "Fisch & Fleisch": ["Hühnchen","Eier","Forelle"],
-      "Hülsenfrüchte": ["Linsen","Limabohnen","Mungobohnen"],
+      "Fisch & Fleisch": ["Hühnchen","Eier","Süsswassermuscheln","Weichschalenkrabbe","Forelle"],
+      "Hülsenfrüchte": ["Linsen","Limabohnen","Mungobohnen","Augenbohnen","Spalterbsen"],
       "Getreide": ["Gerste","Haferflocken","Weizen"],
     }
   },
@@ -58,7 +58,7 @@ export const PHASE_FOODS = {
     bgColor: "#F5F1EA",
     seedCycling: { seeds: { de: ["Leinsamen","Kürbiskerne"], en: ["flax seeds","pumpkin seeds"] }, reason: { de: "Ovulationsphase: weiter Leinsamen und Kürbiskerne zur Östrogenunterstützung.", en: "Ovulation phase: continue with flax and pumpkin seeds to support estrogen." } },
     foods: {
-      "Früchte": ["Aprikose","Kokosnuss","Feigen","Melone","Himbeeren","Erdbeeren"],
+      "Früchte": ["Aprikose","Kokosnuss","Feigen","Guave","Melone","Cantaloupe-Melone","Himbeeren","Erdbeeren"],
       "Gemüse": ["Spargel","Rosenkohl","Paprika","Mangold","Aubergine","Spinat","Frühlingszwiebel","Tomate"],
       "Nüsse & Samen": ["Mandeln","Leinsamen","Pekannüsse","Pistazien"],
       "Fisch & Fleisch": ["Lamm","Lachs","Crevetten","Thunfisch"],
@@ -84,7 +84,7 @@ export const PHASE_FOODS = {
       "Gemüse": ["Kohl","Blumenkohl","Sellerie","Gurke","Knoblauch","Ingwer","Lauch","Zwiebel","Kürbis","Radieschen","Süsskartoffel"],
       "Nüsse & Samen": ["Pinienkerne","Sesam","Sonnenblumenkerne","Walnüsse"],
       "Fisch & Fleisch": ["Rind","Truthahn","Kabeljau","Seezunge","Heilbutt"],
-      "Hülsenfrüchte": ["Chickpea","Navy bean"],
+      "Hülsenfrüchte": ["Kichererbsen","Weisse Bohnen"],
       "Getreide": ["Naturreis","Hirse","Sorghum"],
     }
   }

@@ -4,6 +4,7 @@ import { S } from "./styles";
 import { SHOPPING_CATEGORIES } from "./data";
 import { useT } from "./useT";
 import FloralBanner from "./FloralBanner";
+import { exportShoppingListPDF } from "./pdfExport";
 
 function mergeItems(items) {
   const byName = new Map();
@@ -56,14 +57,8 @@ export default function ShoppingList({ items, onClear, onToggleChecked, onRemove
   const hasChecked = merged.some(i => i.checked);
   const listText = merged.map(i=>`${i.name}${i.amount?": "+i.amount:""}`).join("\n");
 
-  const share = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: t("shoppingList"), text: listText }); }
-      catch(e) {}
-    } else {
-      navigator.clipboard?.writeText(listText);
-      setCopied(true); setTimeout(()=>setCopied(false), 2000);
-    }
+  const downloadPDF = () => {
+    exportShoppingListPDF(byCategory, lang);
   };
 
   return (
@@ -103,7 +98,9 @@ export default function ShoppingList({ items, onClear, onToggleChecked, onRemove
         }
         {merged.length>0 && (
           <div style={{ display:"flex", gap:9, marginTop:6 }}>
-            <button style={{ ...S.btn(), flex:1 }} onClick={share}>{t("share")}</button>
+            <button style={{ ...S.btn(), flex:1 }} onClick={downloadPDF}>
+              {lang==="en" ? "Download PDF" : "Als PDF herunterladen"}
+            </button>
             <button style={{ ...S.btnGhost(), flex:1, padding:"12px 20px" }}
               onClick={()=>{ navigator.clipboard?.writeText(listText); setCopied(true); setTimeout(()=>setCopied(false),2000); }}>
               {copied ? t("copied") : t("copy")}

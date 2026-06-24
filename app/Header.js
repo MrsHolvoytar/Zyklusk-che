@@ -4,9 +4,17 @@ import { Icons } from "./styles";
 import { useT } from "./useT";
 import { loc } from "./data";
 
-export function LangSwitch({ lang, onChange }) {
+export function LangSwitch({ lang, onChange, onOpenProfile }) {
   return (
-    <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:14 }}>
+    <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:8, marginBottom:14 }}>
+      <div onClick={onOpenProfile} style={{
+        cursor:"pointer", width:30, height:30, borderRadius:"50%",
+        background:"rgba(58,47,40,0.06)", display:"flex", alignItems:"center", justifyContent:"center",
+      }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8E6F58" strokeWidth="2">
+          <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
+        </svg>
+      </div>
       <div style={{ display:"flex", background:"rgba(58,47,40,0.06)", borderRadius:999, padding:3 }}>
         {["de","en"].map(l => (
           <div key={l} onClick={()=>onChange(l)} style={{
@@ -24,8 +32,9 @@ export function LangSwitch({ lang, onChange }) {
 }
 
 // Kompakter Phase-Teaser auf der Heute-Seite — Ernährungs-Teaser statt allgemeiner Stimmung,
-// klickbar zur ausführlichen Phase-Seite. Mit Schieberegler zum schnellen Springen zwischen Tagen.
-export function PhaseTeaser({ phase, p, cycleDay, setCycleDay, lang, onOpenPhase }) {
+// klickbar zur ausführlichen Phase-Seite. Tag wird automatisch aus dem Startdatum berechnet;
+// +/- und Schieberegler verschieben das Startdatum (manuelle Korrektur bleibt möglich).
+export function PhaseTeaser({ phase, p, cycleDay, onShiftDay, onSetDay, lang, onOpenPhase }) {
   const t = useT(lang);
   return (
     <div style={{
@@ -53,7 +62,7 @@ export function PhaseTeaser({ phase, p, cycleDay, setCycleDay, lang, onOpenPhase
           onClick={(e)=>e.stopPropagation()}>
           <span style={{ fontSize:10, color:p.eyebrow, opacity:0.8 }}>1</span>
           <input type="range" min={1} max={35} value={cycleDay}
-            onChange={e=>setCycleDay(+e.target.value)}
+            onChange={e=>onSetDay(+e.target.value)}
             style={{ flex:1, accentColor:"rgba(255,255,255,0.85)" }} />
           <span style={{ fontSize:10, color:p.eyebrow, opacity:0.8 }}>35</span>
         </div>
@@ -63,7 +72,7 @@ export function PhaseTeaser({ phase, p, cycleDay, setCycleDay, lang, onOpenPhase
 }
 
 // Kompakter Header für Unterseiten (Rezepte, Liste, Phase-Detail) mit Tag-Steuerung.
-export function CompactHeader({ phase, p, cycleDay, setCycleDay, lang }) {
+export function CompactHeader({ phase, p, cycleDay, onShiftDay, lang }) {
   const t = useT(lang);
   return (
     <div style={{ background:p.gradient, borderRadius:24, padding:0, position:"relative",
@@ -79,11 +88,11 @@ export function CompactHeader({ phase, p, cycleDay, setCycleDay, lang }) {
         <div style={{ textAlign:"right" }}>
           <div style={{ fontSize:9, color:p.eyebrow, marginBottom:6, textTransform:"uppercase", letterSpacing:1, opacity:0.8 }}>{t("dayLabel")}</div>
           <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-            <button onClick={()=>setCycleDay(d=>Math.max(1,d-1))} style={{
+            <button onClick={()=>onShiftDay(-1)} style={{
               width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.18)",
               border:"1px solid rgba(255,255,255,0.3)", color:p.textBright, fontSize:14, cursor:"pointer" }}>−</button>
             <span style={{ fontWeight:700, fontSize:20, color:p.textBright, minWidth:26, textAlign:"center" }}>{cycleDay}</span>
-            <button onClick={()=>setCycleDay(d=>Math.min(35,d+1))} style={{
+            <button onClick={()=>onShiftDay(1)} style={{
               width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.18)",
               border:"1px solid rgba(255,255,255,0.3)", color:p.textBright, fontSize:14, cursor:"pointer" }}>+</button>
           </div>

@@ -11,7 +11,7 @@ export default function PlanModal({ phase, p, onSubmit, onClose, lang }) {
   const toggle = (arr, set, v) => set(a=>a.includes(v)?a.filter(x=>x!==v):[...a,v]);
   const total = days * meals.length;
 
-  const MEAL_OPTS = [t("breakfast"), t("lunch"), t("dinner"), t("snack")];
+  const MEAL_OPTS = [t("breakfast"), t("lunch"), t("dinner"), t("snack"), lang==="en"?"Dessert":"Dessert"];
   const MOOD_OPTS = [t("savory"), t("creamy"), t("light"), t("sweet"), t("warm"), t("cold"), t("crispy"), t("soupy"), t("quick"), t("elaborate")];
 
   return (
