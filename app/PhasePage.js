@@ -1,0 +1,90 @@
+"use client";
+import { useState } from "react";
+import { S, Icons } from "./styles";
+import { CompactHeader } from "./Header";
+import { useT } from "./useT";
+import { loc } from "./data";
+import { drawRandomFacts } from "./phaseFacts";
+import PhaseIngredients from "./PhaseIngredients";
+
+function FactSection({ icon, title, fact, accentSoft, accentIcon }) {
+  if (!fact) return null;
+  return (
+    <div style={S.card}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+        <div style={{ width:26, height:26, borderRadius:"50%", background:accentSoft,
+          display:"flex", alignItems:"center", justifyContent:"center" }}>
+          {icon}
+        </div>
+        <span style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:14.5, fontWeight:600, color:"#3A2F28" }}>{title}</span>
+      </div>
+      <p style={{ fontSize:13, color:"#5E5048", lineHeight:1.6, margin:0 }}>{fact.text}</p>
+      <div style={{ marginTop:8, fontSize:10.5, color:"#B8A48E" }}>{fact.source}</div>
+    </div>
+  );
+}
+
+export default function PhasePage({ phaseKey, phase, p, cycleDay, setCycleDay, lang }) {
+  const t = useT(lang);
+  const [facts, setFacts] = useState(null);
+  const [tab, setTab] = useState("wissen"); // wissen | zutaten
+
+  // Zieht eine zufällige Kombination aus den fest hinterlegten, quellenbelegten
+  // Fakten-Pools - kein API-Call, sofort verfügbar, jeder Klick liefert neue Variante.
+  const loadFacts = () => {
+    const raw = drawRandomFacts(phaseKey);
+    setFacts({
+      body: { text: loc(raw.body.text, lang), source: raw.body.source },
+      mental: { text: loc(raw.mental.text, lang), source: raw.mental.source },
+      nutrition: { text: loc(raw.nutrition.text, lang), source: raw.nutrition.source },
+    });
+  };
+
+  return (
+    <div>
+      <CompactHeader phase={phase} p={p} cycleDay={cycleDay} setCycleDay={setCycleDay} lang={lang} />
+
+      <div style={{ display:"flex", background:"#FFFDF9", border:"1px solid rgba(180,150,130,0.25)", borderRadius:16, padding:4, marginBottom:16 }}>
+        <div onClick={()=>setTab("wissen")} style={{
+          flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
+          background: tab==="wissen" ? p.deep : "transparent",
+          color: tab==="wissen" ? "#FFFBF8" : "#9C8A78", fontSize:13, fontWeight:600,
+        }}>{lang==="en"?"Knowledge":"Hintergrundwissen"}</div>
+        <div onClick={()=>setTab("zutaten")} style={{
+          flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
+          background: tab==="zutaten" ? p.deep : "transparent",
+          color: tab==="zutaten" ? "#FFFBF8" : "#9C8A78", fontSize:13, fontWeight:600,
+        }}>{lang==="en"?"Ingredients":"Zutaten"}</div>
+      </div>
+
+      {tab === "wissen" && (
+        <div>
+          <button style={S.btn(`linear-gradient(135deg,${p.accent},${p.deep})`)} onClick={loadFacts}>
+            {lang==="en" ? "Show knowledge" : "Hintergrundwissen anzeigen"}
+          </button>
+
+          {!facts && (
+            <p style={{ ...S.sub, textAlign:"center", marginTop:18, fontStyle:"italic" }}>
+              {lang==="en"
+                ? "Tap the button for a random, source-backed fact about this phase."
+                : "Tippe auf den Knopf für einen zufälligen, quellenbelegten Fakt zu dieser Phase."}
+            </p>
+          )}
+
+          {facts && (
+            <div style={{ marginTop:16 }}>
+              <FactSection icon={<Icons.Body size={13} color={p.accentIcon} />} title={t("inBody")}
+                fact={facts.body} accentSoft={p.accentSoft} accentIcon={p.accentIcon} />
+              <FactSection icon={<Icons.Mind size={13} color={p.accentIcon} />} title={t("mental")}
+                fact={facts.mental} accentSoft={p.accentSoft} accentIcon={p.accentIcon} />
+              <FactSection icon={<Icons.Leaf size={13} color={p.accentIcon} />} title={t("nutrition")}
+                fact={facts.nutrition} accentSoft={p.accentSoft} accentIcon={p.accentIcon} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "zutaten" && <PhaseIngredients phase={phaseKey} p={p} lang={lang} />}
+    </div>
+  );
+}
