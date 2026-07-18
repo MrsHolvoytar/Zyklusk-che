@@ -80,7 +80,12 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
   }
 
   const generate = async (prefs, fridge = []) => {
-    setLoading(true); setRecipes([]);
+    setLoading(true);
+    // Bereits ausgewaehlte Rezepte (und "replaced"-Eintraege, die nur zum
+    // Vermeiden von Wiederholungen dienen) bleiben erhalten - nur die noch
+    // nicht ausgewaehlten Kandidaten der letzten Runde werden verworfen. Eine
+    // neue Planung darf eine bestehende Auswahl nicht versehentlich loeschen.
+    setRecipes(prev => prev.filter(r => r.status === "selected" || r.replaced));
     // Neuer Plan startet immer bei heute - ein Rezept pro Tag. Die Personenzahl
     // aus dem Planungsdialog gilt fuer diesen Plan (ueberschreibt den Profil-Standard).
     const effectivePersons = Math.max(1, Number(prefs.persons) || persons);
@@ -92,7 +97,10 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
   };
 
   const generateFridgeRecipes = async (prefs, fridge) => {
-    setFridgeLoading(true); setFridgeRecipes([]);
+    setFridgeLoading(true);
+    // Gleiches Prinzip wie bei generate(): bereits ausgewaehlte Kuehlschrank-
+    // Rezepte bleiben erhalten, nur unausgewaehlte Kandidaten werden ersetzt.
+    setFridgeRecipes(prev => prev.filter(r => r.status === "selected"));
     const effectivePersons = Math.max(1, Number(prefs.persons) || persons);
     const slots = buildSlots(prefs.days, 1, todayYMD());
     await generateForMeals(prefs.meals, slots, prefs.moods, fridge, effectivePersons, {
