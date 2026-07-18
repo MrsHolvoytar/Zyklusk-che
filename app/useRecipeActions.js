@@ -45,19 +45,19 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
   const [fridgeRecipes, setFridgeRecipes] = useState([]);
   const [fridgeLoading, setFridgeLoading] = useState(false);
 
-  const runPromptForMeal = (mealKey, slots, moods, fridge, sameDayMainIngredients) =>
+  const runPromptForMeal = (mealKey, slots, moods, fridge, sameDayMainIngredients, effectivePersons) =>
     buildPromptForMeal({
       mealKey, slots, moods, fridge, sameDayMainIngredients, cycleDay, lang, profile, mealTargets,
-      cycleLength, cycleStartDate, persons,
+      cycleLength, cycleStartDate, persons: effectivePersons ?? persons,
       replacedRecipeNames: recipes.filter(r => r.replaced).map(r => r.name),
     });
 
-  async function generateForMeals(mealKeys, slots, moods, fridge, { onProgress, targetSetter }) {
+  async function generateForMeals(mealKeys, slots, moods, fridge, effectivePersons, { onProgress, targetSetter }) {
     const sameDayMain = [];
     for (const mealKey of mealKeys) {
       onProgress?.(mealLabelFor(mealKey, lang));
       try {
-        const prompt = runPromptForMeal(mealKey, slots, moods, fridge, sameDayMain);
+        const prompt = runPromptForMeal(mealKey, slots, moods, fridge, sameDayMain, effectivePersons);
         const parsed = await fetchRecipes(prompt);
         // Rezept i gehoert zu Slot i: Kalenderdaten + Portions-SNAPSHOT werden am
         // Rezept gespeichert. Der Snapshot sorgt dafuer, dass eine spaetere
@@ -65,12 +65,12 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
         // Einkaufsliste) nicht rueckwirkend veraendert.
         const withIds = (parsed || []).map((r, i) => {
           const slot = slots[Math.min(i, slots.length - 1)];
-          const servings = slot.dates.length * persons;
+          const servings = slot.dates.length * effectivePersons;
           return {
             ...r, mealKey, status: null, favorite: false, cooked: false, replaced: false,
             whyText: null, whySource: null, id: `${Date.now()}-${Math.random()}`,
             plannedDates: slot.dates, portions: servings,
-            basePortions: Number(r.basePortions) || servings, personsSnapshot: persons,
+            basePortions: Number(r.basePortions) || servings, personsSnapshot: effectivePersons,
           };
         });
         targetSetter(prev => [...prev, ...withIds]);
@@ -81,9 +81,11 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   const generate = async (prefs, fridge = []) => {
     setLoading(true); setRecipes([]);
-    // Neuer Plan startet immer bei heute - Slots aus Tagen x Vorkoch-Dauer.
-    const slots = buildSlots(prefs.days, prefs.daysPerRecipe || 1, todayYMD());
-    await generateForMeals(prefs.meals, slots, prefs.moods, fridge, {
+    // Neuer Plan startet immer bei heute - ein Rezept pro Tag. Die Personenzahl
+    // aus dem Planungsdialog gilt fuer diesen Plan (ueberschreibt den Profil-Standard).
+    const effectivePersons = Math.max(1, Number(prefs.persons) || persons);
+    const slots = buildSlots(prefs.days, 1, todayYMD());
+    await generateForMeals(prefs.meals, slots, prefs.moods, fridge, effectivePersons, {
       onProgress: setLoadingMeal, targetSetter: setRecipes,
     });
     setLoadingMeal(""); setLoading(false);
@@ -91,8 +93,9 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   const generateFridgeRecipes = async (prefs, fridge) => {
     setFridgeLoading(true); setFridgeRecipes([]);
-    const slots = buildSlots(prefs.days, prefs.daysPerRecipe || 1, todayYMD());
-    await generateForMeals(prefs.meals, slots, prefs.moods, fridge, {
+    const effectivePersons = Math.max(1, Number(prefs.persons) || persons);
+    const slots = buildSlots(prefs.days, 1, todayYMD());
+    await generateForMeals(prefs.meals, slots, prefs.moods, fridge, effectivePersons, {
       targetSetter: setFridgeRecipes,
     });
     setFridgeLoading(false);
@@ -100,22 +103,23 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   const generateReplacement = async (oldRecipe) => {
     try {
-      // Der Ersatz erbt den Datums-Slot des alten Rezepts, damit Tag/Phase und
-      // Portionen konsistent bleiben (auch beim Ersetzen am Folgetag).
+      // Der Ersatz erbt den Datums-Slot UND die Personenzahl des alten Rezepts,
+      // damit Tag/Phase und Portionen konsistent bleiben.
       const slot = { dates: oldRecipe.plannedDates?.length ? oldRecipe.plannedDates : [todayYMD()] };
-      const prompt = runPromptForMeal(oldRecipe.mealKey, [slot], []).replace(
+      const effectivePersons = oldRecipe.personsSnapshot || persons;
+      const prompt = runPromptForMeal(oldRecipe.mealKey, [slot], [], [], [], effectivePersons).replace(
         "Respond ONLY with a JSON array",
         `Avoid a recipe similar to "${oldRecipe.name}". Respond ONLY with a JSON array`
       );
       const parsed = await fetchRecipes(prompt);
       if (parsed?.[0]) {
-        const servings = slot.dates.length * (oldRecipe.personsSnapshot || persons);
+        const servings = slot.dates.length * effectivePersons;
         const replacement = {
           ...parsed[0], mealKey: oldRecipe.mealKey, status: null, favorite: false, cooked: false, replaced: false,
           whyText: null, whySource: null, id: `${Date.now()}-${Math.random()}`,
           plannedDates: slot.dates, portions: servings,
           basePortions: Number(parsed[0].basePortions) || servings,
-          personsSnapshot: oldRecipe.personsSnapshot || persons,
+          personsSnapshot: effectivePersons,
         };
         setRecipes(prev => [...prev.filter(r => r.id !== oldRecipe.id), replacement]);
       }
@@ -141,6 +145,14 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
     if (recipe.status === "selected") return;
     setRecipes(prev => prev.map(r => r.id === recipe.id ? { ...r, status: "selected" } : r));
     addOrUpdateListEntriesForRecipe({ ...recipe, status: "selected" });
+  };
+
+  // Macht eine Auswahl rueckgaengig - Rezept bleibt in der Liste (man kann es
+  // spaeter wieder auswaehlen), aber verschwindet aus der Einkaufsliste.
+  const deselectRecipe = (recipeId) => {
+    removeListEntriesForRecipe(recipeId);
+    setRecipes(prev => prev.map(r => r.id === recipeId ? { ...r, status: null, cooked: false } : r));
+    setFridgeRecipes(prev => prev.map(r => r.id === recipeId ? { ...r, status: null, cooked: false } : r));
   };
 
   // Für Favoriten (volle Übernahme inkl. Einkaufsliste) und Kühlschrank-Rezepte
@@ -250,7 +262,7 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   return {
     recipes, shoppingList, favorites, loading, loadingMeal, fridgeRecipes, fridgeLoading,
-    generate, generateFridgeRecipes, selectRecipe, selectAnyRecipe, replaceRecipe,
+    generate, generateFridgeRecipes, selectRecipe, deselectRecipe, selectAnyRecipe, replaceRecipe,
     toggleFavorite, toggleCooked, removeCookedRecipes, removeExpiredRecipes, changePortions, updateWhy,
     clearUnselected, toggleChecked, removeChecked, addSingleIngredient,
     setRecipes, setShoppingList, setFridgeRecipes,

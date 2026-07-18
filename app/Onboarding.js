@@ -7,7 +7,7 @@ export default function Onboarding({ onDone, lang, onLangChange }) {
   const t = useT(lang);
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState({
-    name:"", persons:2, cycleLength:28, kcal:"", protein:"", allergies:[], dislikes:[], diet:"omnivor",
+    name:"", cycleLength:28, kcal:"", protein:"", allergies:[], dislikes:[], diet:"omnivor",
   });
   const [startDate, setStartDate] = useState("");
   const [inp, setInp] = useState("");
@@ -42,16 +42,6 @@ export default function Onboarding({ onDone, lang, onLangChange }) {
         <button style={{ ...S.pill, width:44 }} onClick={()=>setProfile(p=>({...p,cycleLength:Math.max(21,(p.cycleLength||28)-1)}))}>−</button>
         <span style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:26, fontWeight:600, minWidth:52, textAlign:"center" }}>{profile.cycleLength}</span>
         <button style={{ ...S.pill, width:44 }} onClick={()=>setProfile(p=>({...p,cycleLength:Math.min(40,(p.cycleLength||28)+1)}))}>+</button>
-      </div>
-      <h2 style={{ ...S.h2, marginTop:4 }}>{t("forHowManyPersons")}</h2>
-      <div style={{ display:"flex", gap:8, margin:"12px 0 22px" }}>
-        {[1,2,3,4,5,6].map(n=>(
-          <button key={n} onClick={()=>setProfile(p=>({...p,persons:n}))}
-            style={{ ...S.pill, flex:1, textAlign:"center",
-              background:profile.persons===n?"#7A5E80":"rgba(255,255,255,0.5)",
-              color:profile.persons===n?"#FFFBF5":"#5E5162",
-              borderColor:profile.persons===n?"#7A5E80":"rgba(160,140,170,0.32)" }}>{n}</button>
-        ))}
       </div>
       <button style={S.btn()} onClick={()=>setStep(3)}>{t("next")}</button>
     </div>,

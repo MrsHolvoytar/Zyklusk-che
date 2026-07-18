@@ -6,15 +6,13 @@ import { useT } from "./useT";
 export default function PlanModal({ phase, p, onSubmit, onClose, lang, persons = 2 }) {
   const t = useT(lang);
   const [days, setDays] = useState(1);
-  const [daysPerRecipe, setDaysPerRecipe] = useState(1);
+  const [planPersons, setPlanPersons] = useState(persons);
   const [meals, setMeals] = useState([]);
   const [moods, setMoods] = useState([]);
   const toggle = (arr, set, v) => set(a=>a.includes(v)?a.filter(x=>x!==v):[...a,v]);
-  // Vorkochen: ein Rezept deckt daysPerRecipe Tage ab -> weniger Rezepte,
-  // dafuer mehr Portionen pro Rezept (Tage x Personen).
-  const effectiveDpr = Math.min(daysPerRecipe, days);
-  const recipesPerMeal = Math.ceil(days / effectiveDpr);
-  const total = recipesPerMeal * meals.length;
+  // Ein Rezept pro Tag - die Personenzahl fuer diesen Plan bestimmt direkt die
+  // Portionen (Tage x Personen entfaellt, da kein Vorkoch-Modus mehr existiert).
+  const total = days * meals.length;
 
   // Stabile, sprachunabhängige Schlüssel - werden in recipe.mealKey gespeichert.
   // Nur für die Anzeige im UI wird übersetzt, damit ein Sprachwechsel später
@@ -43,24 +41,15 @@ export default function PlanModal({ phase, p, onSubmit, onClose, lang, persons =
           ))}
         </div>
 
-        <label style={S.label}>{t("recipeLasts")}</label>
+        <label style={S.label}>{t("forHowManyPersons")}</label>
         <div style={{ display:"flex", gap:8, marginBottom:20 }}>
-          {[1,2,3].map(n=>(
-            <button key={n} onClick={()=>setDaysPerRecipe(n)}
+          {[1,2,3,4,5,6].map(n=>(
+            <button key={n} onClick={()=>setPlanPersons(n)}
               style={{ ...S.pill, flex:1, textAlign:"center",
-                background:daysPerRecipe===n?p.deep:"rgba(255,255,255,0.5)", color:daysPerRecipe===n?"#FFFBF9":"#5E5162",
-                borderColor:daysPerRecipe===n?p.deep:"rgba(160,140,170,0.32)" }}>
-              {n===1?t("dayOne"):`${n} ${t("daysN")}`}
-            </button>
+                background:planPersons===n?p.deep:"rgba(255,255,255,0.5)", color:planPersons===n?"#FFFBF9":"#5E5162",
+                borderColor:planPersons===n?p.deep:"rgba(160,140,170,0.32)" }}>{n}</button>
           ))}
         </div>
-        {effectiveDpr > 1 && (
-          <p style={{ fontSize:11.5, color:"#97889A", marginTop:-12, marginBottom:18, lineHeight:1.45 }}>
-            {lang==="en"
-              ? `Meal-prep mode: each recipe is planned with ${effectiveDpr} × ${persons} = ${effectiveDpr*persons} servings.`
-              : `Vorkoch-Modus: jedes Rezept wird mit ${effectiveDpr} × ${persons} = ${effectiveDpr*persons} Portionen geplant.`}
-          </p>
-        )}
 
         <label style={S.label}>{t("whichMeals")}</label>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
@@ -90,7 +79,7 @@ export default function PlanModal({ phase, p, onSubmit, onClose, lang, persons =
 
         <button style={{ ...S.btn(meals.length>0?`linear-gradient(135deg,${p.accent},${p.deep})`:"#D9C6D6"), cursor:meals.length>0?"pointer":"not-allowed" }}
           disabled={meals.length===0}
-          onClick={()=>meals.length>0&&onSubmit({days,daysPerRecipe:effectiveDpr,meals,moods})}>
+          onClick={()=>meals.length>0&&onSubmit({days,persons:planPersons,meals,moods})}>
           {meals.length>0?`${t("searchRecipes")} (${total})`:t("pleaseSelectMeal")}
         </button>
       </div>

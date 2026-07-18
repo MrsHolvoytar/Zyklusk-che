@@ -10,7 +10,7 @@ import { exportRecipesPDF } from "./pdfExport";
 export default function RecipesPage({
   phase, p, cycleDay, onShiftDay, lang,
   recipes, loading, loadingMeal, onShowModal,
-  profile, onSelectRecipe, onReplaceRecipe, onToggleFavorite, onChangePortions,
+  profile, onSelectRecipe, onDeselectRecipe, onReplaceRecipe, onToggleFavorite, onChangePortions,
   onClearUnselected, onUpdateWhy, favorites,
   fridgeItems, fridgeInput, onFridgeInputChange, onAddFridgeItem, onRemoveFridgeItem,
   onShowFridgeModal, onAddSingleIngredient, fridgeRecipes, fridgeLoading,
@@ -79,10 +79,9 @@ export default function RecipesPage({
                     <div style={{ fontSize:10, letterSpacing:2, color:p.deep, textTransform:"uppercase", fontWeight:700, margin:"18px 0 8px" }}>{meal}</div>
                     {mrs.map((r) => (
                       <RecipeCard key={r.id} recipe={r} p={p} profile={profile} lang={lang}
-                  cycleStartDate={cycleStartDate} cycleLength={cycleLength}
                         cycleStartDate={cycleStartDate} cycleLength={cycleLength}
                         expanded={expandedId === r.id} onToggleExpand={()=>toggleExpand(r.id)}
-                        onSelect={()=>onSelectRecipe(r)} onReplace={()=>onReplaceRecipe(r)}
+                        onSelect={()=>onSelectRecipe(r)} onDeselect={()=>onDeselectRecipe?.(r.id)} onReplace={()=>onReplaceRecipe(r)}
                         onToggleFavorite={onToggleFavorite} onChangePortions={onChangePortions}
                         onUpdateWhy={onUpdateWhy} phaseKey={phaseKey} />
                     ))}
@@ -112,7 +111,7 @@ export default function RecipesPage({
                     <RecipeCard key={f.recipe.id} recipe={f.recipe} p={pd} profile={profile} lang={lang}
                       cycleStartDate={cycleStartDate} cycleLength={cycleLength}
                       expanded={expandedId === f.recipe.id} onToggleExpand={()=>toggleExpand(f.recipe.id)}
-                      onSelect={()=>onSelectAnyRecipe?.(f.recipe)}
+                      onSelect={()=>onSelectAnyRecipe?.(f.recipe)} onDeselect={()=>onDeselectRecipe?.(f.recipe.id)}
                       onToggleFavorite={onToggleFavorite} onChangePortions={onChangePortions}
                       onUpdateWhy={onUpdateWhy} phaseKey={phaseKey} />
                   ))}
@@ -153,7 +152,7 @@ export default function RecipesPage({
                   cycleStartDate={cycleStartDate} cycleLength={cycleLength}
                   expanded={expandedId === r.id} onToggleExpand={()=>toggleExpand(r.id)}
                   fromFridge onAddSingleIngredient={onAddSingleIngredient}
-                  onSelect={()=>onSelectAnyRecipe?.(r, false)}
+                  onSelect={()=>onSelectAnyRecipe?.(r, false)} onDeselect={()=>onDeselectRecipe?.(r.id)}
                   onToggleFavorite={onToggleFavorite} onChangePortions={onChangePortions}
                   onUpdateWhy={onUpdateWhy} phaseKey={phaseKey} />
               ))}

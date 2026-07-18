@@ -22,6 +22,11 @@ export default function ZyklusKueche() {
   const [profile, setProfile, profileHydrated] = usePersistentState("zk_profile", null);
   const [lang, setLang] = usePersistentState("zk_lang", "de");
   const [cycleStartDate, setCycleStartDate] = usePersistentState("zk_cycleStartDate", null);
+  // Der "Anker" merkt sich das zuletzt ECHT eingegebene Periodenstartdatum
+  // (Onboarding, Profil, Kalender-Icon) getrennt vom Schieberegler. So bleibt
+  // immer nachvollziehbar, was der "richtige" Tag waere, auch wenn der Regler
+  // zur manuellen Korrektur genutzt wurde - siehe resetToAnchor() weiter unten.
+  const [periodAnchorDate, setPeriodAnchorDate] = usePersistentState("zk_periodAnchorDate", null);
   const [view, setView] = usePersistentState("zk_view", "heute");
   const [mealTargets, setMealTargets] = usePersistentState("zk_mealTargets", null);
 
@@ -62,17 +67,31 @@ export default function ZyklusKueche() {
   const p = PHASE_FOODS[phaseKey];
   const phaseColor = { deep: p.deep, darker: p.gradient.match(/#[0-9A-Fa-f]{6}/g)[1], shadow: p.shadow };
 
+  // Bestehende Profile (vor diesem Update) haben noch keinen Anker gespeichert -
+  // beim ersten Laden einmalig aus dem aktuellen Startdatum uebernehmen, damit
+  // "Zuruecksetzen" auch fuer sie sofort sinnvoll funktioniert.
+  useEffect(() => {
+    if (cycleStartDate && !periodAnchorDate) setPeriodAnchorDate(cycleStartDate);
+  }, [cycleStartDate, periodAnchorDate]);
+
   const shiftDay = (delta) => setCycleStartDate(dayToStartDate(Math.max(1, Math.min(cycleLength, cycleDay + delta))));
   const setDayDirectly = (day) => setCycleStartDate(dayToStartDate(day));
-  // Ein neues Startdatum setzt den Zyklus automatisch auf Tag 1 zurück - das
-  // Startdatum bleibt die einzige Quelle der Wahrheit für die Tagesberechnung.
-  const handleChangeStartDate = (newDate) => setCycleStartDate(newDate);
+  // Ein neues, ECHT eingegebenes Startdatum (Kalender-Icon, Profil) setzt sowohl
+  // das Startdatum als auch den Anker - das ist der einzige Weg, den Anker zu
+  // aendern, damit der Regler ihn nicht versehentlich ueberschreiben kann.
+  const handleChangeStartDate = (newDate) => { setCycleStartDate(newDate); setPeriodAnchorDate(newDate); };
+  // Macht jede manuelle Regler-Korrektur rueckgaengig und springt zurueck zu dem
+  // Tag, der sich aus dem zuletzt echt eingegebenen Periodenstart ergibt.
+  const resetToAnchor = () => { if (periodAnchorDate) setCycleStartDate(periodAnchorDate); };
+  const dayWasShifted = periodAnchorDate !== null && cycleStartDate !== periodAnchorDate;
 
   const actions = useRecipeActions({ profile: profile || {}, lang, cycleDay, mealTargets, cycleLength, cycleStartDate });
 
   const handleOnboardingDone = (profileData, startDate) => {
     setProfile(profileData);
-    setCycleStartDate(startDate || todayYMD());
+    const start = startDate || todayYMD();
+    setCycleStartDate(start);
+    setPeriodAnchorDate(start);
   };
 
   const addFridgeItem = () => {
@@ -120,14 +139,14 @@ export default function ZyklusKueche() {
           mealTargets={mealTargets} onChangeMealTargets={setMealTargets} />
       )}
 
-      <LangSwitch lang={lang} onChange={setLang} onOpenProfile={() => setShowProfile(true)} onSetStartDate={handleChangeStartDate} />
+      <LangSwitch lang={lang} onChange={setLang} onOpenProfile={() => setShowProfile(true)} onSetStartDate={handleChangeStartDate} accentColor={p.deep} />
 
       {view === "heute" && (
         <div>
           <div style={{ fontFamily: "'Baloo 2',sans-serif", fontSize: 20, fontWeight: 600, color: "#443A46", marginBottom: 14 }}>
             {t("greeting")}{profile.name ? `, ${profile.name}` : ""}
           </div>
-          <PhaseTeaser phase={phaseKey} p={p} cycleDay={cycleDay} cycleLength={cycleLength} onShiftDay={shiftDay} onSetDay={setDayDirectly} lang={lang} onOpenPhase={() => setView("phase")} />
+          <PhaseTeaser phase={phaseKey} p={p} cycleDay={cycleDay} cycleLength={cycleLength} onShiftDay={shiftDay} onSetDay={setDayDirectly} lang={lang} onOpenPhase={() => setView("phase")} onResetDay={resetToAnchor} dayWasShifted={dayWasShifted} />
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
             <div style={{ fontSize: 10, letterSpacing: 2, color: "#97889A", textTransform: "uppercase", fontWeight: 700 }}>{t("nextPlanned")}</div>
@@ -193,7 +212,7 @@ export default function ZyklusKueche() {
         <RecipesPage phase={phaseKey} p={p} cycleDay={cycleDay} onShiftDay={shiftDay} lang={lang}
           cycleStartDate={cycleStartDate} cycleLength={cycleLength}
           recipes={recipesWithLabel} loading={actions.loading} loadingMeal={actions.loadingMeal} onShowModal={() => setShowModal(true)}
-          profile={profile} onSelectRecipe={actions.selectRecipe} onReplaceRecipe={actions.replaceRecipe}
+          profile={profile} onSelectRecipe={actions.selectRecipe} onDeselectRecipe={actions.deselectRecipe} onReplaceRecipe={actions.replaceRecipe}
           onToggleFavorite={(id) => actions.toggleFavorite(id, phaseKey)} onChangePortions={actions.changePortions}
           onClearUnselected={actions.clearUnselected} onUpdateWhy={actions.updateWhy} favorites={favoritesWithLabel}
           fridgeItems={fridgeItems} fridgeInput={fridgeInput} onFridgeInputChange={setFridgeInput}

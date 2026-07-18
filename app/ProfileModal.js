@@ -70,17 +70,6 @@ export default function ProfileModal({ profile, onSave, onClose, lang, startDate
           <span style={{ fontSize:11.5, color:"#97889A" }}>{t("cycleLengthHint")}</span>
         </div>
 
-        <label style={S.label}>{t("persons")}</label>
-        <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-          {[1,2,3,4,5,6].map(n=>(
-            <button key={n} onClick={()=>setDraft(p=>({...p,persons:n}))}
-              style={{ ...S.pill, flex:1, textAlign:"center",
-                background:(draft.persons||2)===n?"#7A5E80":"rgba(255,255,255,0.5)",
-                color:(draft.persons||2)===n?"#FFFBF5":"#5E5162",
-                borderColor:(draft.persons||2)===n?"#7A5E80":"rgba(160,140,170,0.32)" }}>{n}</button>
-          ))}
-        </div>
-
         <label style={S.label}>{t("dietType")}</label>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
           {DIETS.map(([v,l])=>(

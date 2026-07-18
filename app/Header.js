@@ -9,7 +9,7 @@ import { loc } from "./data";
 // ohne über das Profil-Modal zu müssen. Setzt automatisch auf Tag 1 zurück,
 // sobald ein neues Datum gewählt wird - das Startdatum bleibt die einzige
 // verlässliche Quelle für die Zyklustag-Berechnung.
-export function CalendarQuickSet({ lang, onSetStartDate }) {
+export function CalendarQuickSet({ lang, onSetStartDate, accentColor = "#7A5E80" }) {
   const [open, setOpen] = useState(false);
   const t = useT(lang);
   return (
@@ -17,8 +17,9 @@ export function CalendarQuickSet({ lang, onSetStartDate }) {
       <div onClick={()=>setOpen(o=>!o)} style={{
         cursor:"pointer", width:30, height:30, borderRadius:"50%",
         background:"rgba(74,58,80,0.07)", display:"flex", alignItems:"center", justifyContent:"center",
+        transition:"background 0.3s",
       }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A5E80" strokeWidth="2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ transition:"stroke 0.3s" }}>
           <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
         </svg>
       </div>
@@ -45,15 +46,16 @@ export function CalendarQuickSet({ lang, onSetStartDate }) {
   );
 }
 
-export function LangSwitch({ lang, onChange, onOpenProfile, onSetStartDate }) {
+export function LangSwitch({ lang, onChange, onOpenProfile, onSetStartDate, accentColor = "#7A5E80" }) {
   return (
     <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:8, marginBottom:14 }}>
-      <CalendarQuickSet lang={lang} onSetStartDate={onSetStartDate} />
+      <CalendarQuickSet lang={lang} onSetStartDate={onSetStartDate} accentColor={accentColor} />
       <div onClick={onOpenProfile} style={{
         cursor:"pointer", width:30, height:30, borderRadius:"50%",
         background:"rgba(74,58,80,0.07)", display:"flex", alignItems:"center", justifyContent:"center",
+        transition:"background 0.3s",
       }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A5E80" strokeWidth="2">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="2" style={{ transition:"stroke 0.3s" }}>
           <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
         </svg>
       </div>
@@ -61,9 +63,9 @@ export function LangSwitch({ lang, onChange, onOpenProfile, onSetStartDate }) {
         {["de","en"].map(l => (
           <div key={l} onClick={()=>onChange(l)} style={{
             cursor:"pointer", padding:"5px 13px", borderRadius:999,
-            background: lang===l ? "#7A5E80" : "transparent",
+            background: lang===l ? accentColor : "transparent",
             color: lang===l ? "#FFFBF5" : "#97889A",
-            fontSize:11.5, fontWeight:700,
+            fontSize:11.5, fontWeight:700, transition:"background 0.3s",
           }}>
             {l.toUpperCase()}
           </div>
@@ -76,7 +78,7 @@ export function LangSwitch({ lang, onChange, onOpenProfile, onSetStartDate }) {
 // Kompakter Phase-Teaser auf der Heute-Seite — Ernährungs-Teaser statt allgemeiner Stimmung,
 // klickbar zur ausführlichen Phase-Seite. Tag wird automatisch aus dem Startdatum berechnet;
 // +/- und Schieberegler verschieben das Startdatum (manuelle Korrektur bleibt möglich).
-export function PhaseTeaser({ phase, p, cycleDay, cycleLength = 28, onShiftDay, onSetDay, lang, onOpenPhase }) {
+export function PhaseTeaser({ phase, p, cycleDay, cycleLength = 28, onShiftDay, onSetDay, lang, onOpenPhase, onResetDay, dayWasShifted = false }) {
   const t = useT(lang);
   return (
     <div style={{
@@ -108,6 +110,16 @@ export function PhaseTeaser({ phase, p, cycleDay, cycleLength = 28, onShiftDay, 
             style={{ flex:1, accentColor:"rgba(255,255,255,0.85)" }} />
           <span style={{ fontSize:10, color:p.eyebrow, opacity:0.8 }}>{cycleLength}</span>
         </div>
+        {/* Nur sichtbar, wenn der Regler tatsaechlich vom echten Periodenstart
+            abweicht - ein Klick macht die manuelle Korrektur rueckgaengig. */}
+        {dayWasShifted && (
+          <div onClick={(e)=>{ e.stopPropagation(); onResetDay?.(); }} style={{
+            marginTop:9, textAlign:"center", fontSize:11, color:p.textMuted,
+            textDecoration:"underline", cursor:"pointer", opacity:0.9,
+          }}>
+            {t("resetDay")}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -46,7 +46,7 @@ function mergeItems(items) {
   });
 }
 
-export default function ShoppingList({ items, onClear, onToggleChecked, onRemoveChecked, lang, accentColor, accentColor2, cycleStartDate = null, cycleLength = 28 }) {
+export default function ShoppingList({ items, onClear, onToggleChecked, onRemoveChecked, lang, accentColor = "#A05A7C", accentColor2 = "#7D5E92", cycleStartDate = null, cycleLength = 28 }) {
   const t = useT(lang);
   const [copied, setCopied] = useState(false);
   const merged = useMemo(() => mergeItems(items), [items]);
@@ -104,10 +104,10 @@ export default function ShoppingList({ items, onClear, onToggleChecked, onRemove
         }
         {merged.length>0 && (
           <div style={{ display:"flex", gap:9, marginTop:6 }}>
-            <button style={{ ...S.btn(), flex:1 }} onClick={downloadPDF}>
+            <button style={{ ...S.btn(`linear-gradient(135deg,${accentColor},${accentColor2})`), flex:1 }} onClick={downloadPDF}>
               {lang==="en" ? "Download PDF" : "Als PDF herunterladen"}
             </button>
-            <button style={{ ...S.btnGhost(), flex:1, padding:"12px 20px" }}
+            <button style={{ ...S.btnGhost(accentColor2), flex:1, padding:"12px 20px" }}
               onClick={()=>{ navigator.clipboard?.writeText(listText); setCopied(true); setTimeout(()=>setCopied(false),2000); }}>
               {copied ? t("copied") : t("copy")}
             </button>

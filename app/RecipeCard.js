@@ -37,7 +37,7 @@ async function fetchAlternative(ingredient, dietType, lang) {
 // onUpdateWhy: die geladene "Hintergrund"-Information wird ins Recipe-Objekt selbst geschrieben
 // (statt nur in lokalem Component-State), damit sie nach dem Zuklappen garantiert erhalten bleibt.
 export default function RecipeCard({
-  recipe, p, profile, onSelect, onReplace, onToggleFavorite, onChangePortions, lang,
+  recipe, p, profile, onSelect, onDeselect, onReplace, onToggleFavorite, onChangePortions, lang,
   onToggleCooked, expanded = false, onToggleExpand,
   onUpdateWhy, fromFridge = false, onAddSingleIngredient, hideActions = false,
   phaseKey = null, showCookedToggle = false, cycleStartDate = null, cycleLength = 28,
@@ -70,37 +70,65 @@ export default function RecipeCard({
     if (why) { setWhyOpen(o=>!o); return; }
     setWhyOpen(true);
 
-    // Zuerst die feste, recherchierte Datenbank prüfen: nur Zutaten, die (a) auf
-    // der Phasen-Zutatenliste stehen UND (b) einen hinterlegten Fakt haben, damit
-    // "Hintergrund" sofort ohne Wartezeit antworten kann. Mehrere passende
-    // Hauptzutaten werden zu einem gemeinsamen Text zusammengeführt.
+    // Alle fuer diese Phase relevanten Zutaten des Rezepts ermitteln - nicht nur
+    // die 1-2 "mainIngredients", sondern die komplette (bereits portionierte)
+    // Zutatenliste. So werden wirklich ALLE phasenrelevanten Zutaten erklaert,
+    // nicht nur zufaellig die erste passende.
+    const ingredientNames = scaled.length ? scaled.map(s => s.name) : (recipe.ingredients || []);
+    let relevant = [];
     if (phaseKey) {
       const phaseData = PHASE_FOODS[phaseKey];
-      const phaseFoodNames = phaseData ? Object.values(localizedFoods(phaseData, "de")).flat().map(f => normalizeIngredientName(f)) : [];
-      const matches = (recipe.mainIngredients || [])
-        .map(ing => {
-          const norm = normalizeIngredientName(ing);
-          if (!phaseFoodNames.includes(norm)) return null;
-          const fact = getIngredientFact(norm, phaseKey);
-          return fact ? { ing, fact } : null;
-        })
-        .filter(Boolean);
-
-      if (matches.length > 0) {
-        const combinedText = matches.map(m => loc(m.fact, lang)).join(" ");
-        const combinedSource = matches.map(m => m.fact.source).join("; ");
-        onUpdateWhy?.(recipe.id, combinedText, combinedSource);
-        return;
-      }
+      // Gegen die Zutatenliste in der AKTUELLEN Sprache abgleichen (nicht fix
+      // Deutsch) - sonst finden englischsprachige Rezepte nie einen Treffer.
+      const phaseFoodNames = phaseData ? Object.values(localizedFoods(phaseData, lang)).flat().map(f => normalizeIngredientName(f)) : [];
+      const seen = new Set();
+      relevant = ingredientNames
+        .map(ing => normalizeIngredientName(ing))
+        .filter(norm => phaseFoodNames.includes(norm) && !seen.has(norm) && seen.add(norm));
     }
 
-    // Fallback: keine feste Zutat gefunden (selten dank 70%-Regel) - live recherchieren,
-    // mit der Bitte um eine kurze Einordnung statt reiner Ablehnung.
+    if (relevant.length === 0) {
+      // Keine der Zutaten steht auf der Phasenliste - wie bisher: mit den
+      // Hauptzutaten live recherchieren, statt "Hintergrund" leer zu lassen.
+      setLoadingWhy(true);
+      try {
+        const data = await fetchWarum(recipe.mainIngredients?.join(", "), loc(p.label, lang), lang);
+        onUpdateWhy?.(recipe.id, data.text, data.source);
+      } catch(err) { onUpdateWhy?.(recipe.id, "Error: " + err.message, null); }
+      setLoadingWhy(false);
+      return;
+    }
+
+    // Phasenrelevante Zutaten aufteilen: mit fest hinterlegtem Fakt (sofort
+    // verfuegbar) vs. ohne (muessen live recherchiert werden).
+    const withFact = relevant
+      .map(norm => ({ norm, fact: getIngredientFact(norm, phaseKey) }))
+      .filter(m => m.fact);
+    const missing = relevant.filter(norm => !withFact.some(m => m.norm === norm));
+
+    const dbText = withFact.map(m => loc(m.fact, lang)).join(" ");
+    const dbSources = withFact.map(m => m.fact.source);
+
+    if (missing.length === 0) {
+      onUpdateWhy?.(recipe.id, dbText, [...new Set(dbSources)].join("; "));
+      return;
+    }
+
+    // Fuer die restlichen, noch nicht hinterlegten Zutaten EINMAL gemeinsam live
+    // recherchieren (ein API-Aufruf fuer alle fehlenden statt pro Zutat), und
+    // mit den bereits vorhandenen DB-Fakten zu einem gemeinsamen Text verbinden.
     setLoadingWhy(true);
     try {
-      const data = await fetchWarum(recipe.mainIngredients?.join(", "), loc(p.label, lang), lang);
-      onUpdateWhy?.(recipe.id, data.text, data.source);
-    } catch(err) { onUpdateWhy?.(recipe.id, "Error: " + err.message, null); }
+      const data = await fetchWarum(missing.join(", "), loc(p.label, lang), lang);
+      const combinedText = [dbText, data.text].filter(Boolean).join(" ");
+      const combinedSource = [...new Set([...dbSources, data.source].filter(Boolean))].join("; ");
+      onUpdateWhy?.(recipe.id, combinedText, combinedSource);
+    } catch(err) {
+      // Bei einem Fehler bei der Live-Recherche trotzdem die bereits
+      // vorhandenen DB-Fakten anzeigen, statt "Hintergrund" leer zu lassen.
+      if (dbText) onUpdateWhy?.(recipe.id, dbText, [...new Set(dbSources)].join("; "));
+      else onUpdateWhy?.(recipe.id, "Error: " + err.message, null);
+    }
     setLoadingWhy(false);
   };
 
@@ -286,7 +314,9 @@ export default function RecipeCard({
         {!hideActions && (
           <div style={{ display:"flex", gap:8 }}>
             {isSelected ? (
-              <div style={{ flex:1, textAlign:"center", background:p.accentSoft, borderRadius:13, padding:"9px 0", color:p.deep, fontSize:12.5, fontWeight:700 }}>{t("selected")}</div>
+              <div onClick={onDeselect} style={{ flex:1, textAlign:"center", background:p.accentSoft, borderRadius:13, padding:"9px 0", color:p.deep, fontSize:12.5, fontWeight:700, cursor:onDeselect?"pointer":"default" }}>
+                {t("selected")}{onDeselect ? ` · ${t("deselect")}` : ""}
+              </div>
             ) : (
               <div onClick={onSelect} style={{ flex:1, textAlign:"center", background:"rgba(110,139,94,0.12)", border:"1px solid rgba(110,139,94,0.3)", borderRadius:13, padding:"9px 0", color:"#57744A", fontSize:12.5, fontWeight:600, cursor:"pointer" }}>{t("select")}</div>
             )}
