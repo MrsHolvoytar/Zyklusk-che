@@ -70,21 +70,30 @@ export default function RecipeCard({
     if (why) { setWhyOpen(o=>!o); return; }
     setWhyOpen(true);
 
-    // Alle fuer diese Phase relevanten Zutaten des Rezepts ermitteln - nicht nur
-    // die 1-2 "mainIngredients", sondern die komplette (bereits portionierte)
-    // Zutatenliste. So werden wirklich ALLE phasenrelevanten Zutaten erklaert,
-    // nicht nur zufaellig die erste passende.
-    const ingredientNames = scaled.length ? scaled.map(s => s.name) : (recipe.ingredients || []);
+    // Alle fuer diese Phase relevanten Zutaten des Rezepts ermitteln. Statt zu
+    // pruefen, ob eine Zutat EXAKT einem Phasen-Zutat-Namen entspricht (was bei
+    // KI-generierten Zutatentexten wie "Mittelgrosse Zucchini (ca. 400g)" oder
+    // "Cashews (ungesalzen, fuer Cremigkeit)" fast nie zutrifft), wird umgekehrt
+    // geprueft: kommt ein Phasen-Zutat-Name als Teilstring irgendwo im rohen
+    // Zutatentext vor? Das ist robust gegenueber Mengen, Klammerzusaetzen und
+    // mehreren Zutaten in einer Zeile.
+    const rawIngredientText = (recipe.ingredients?.length ? recipe.ingredients : (recipe.mainIngredients || []))
+      .join(" | ").toLowerCase();
     let relevant = [];
-    if (phaseKey) {
+    if (phaseKey && rawIngredientText) {
       const phaseData = PHASE_FOODS[phaseKey];
-      // Gegen die Zutatenliste in der AKTUELLEN Sprache abgleichen (nicht fix
-      // Deutsch) - sonst finden englischsprachige Rezepte nie einen Treffer.
       const phaseFoodNames = phaseData ? Object.values(localizedFoods(phaseData, lang)).flat().map(f => normalizeIngredientName(f)) : [];
-      const seen = new Set();
-      relevant = ingredientNames
-        .map(ing => normalizeIngredientName(ing))
-        .filter(norm => phaseFoodNames.includes(norm) && !seen.has(norm) && seen.add(norm));
+      const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      relevant = phaseFoodNames.filter(foodNorm => {
+        if (!foodNorm) return false;
+        // Wortanfang muss uebereinstimmen (verhindert Zufallstreffer wie "ei"
+        // in "seife"), das Wortende darf variieren (erlaubt Pluralformen wie
+        // "zwiebel" -> "zwiebeln").
+        const re = new RegExp(`(^|[^a-zäöüß])${escapeRegex(foodNorm)}`, "i");
+        return re.test(rawIngredientText);
+      });
+      // Duplikate entfernen (z.B. wenn "Zwiebel" in mehreren Zeilen vorkommt).
+      relevant = [...new Set(relevant)];
     }
 
     if (relevant.length === 0) {
