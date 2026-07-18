@@ -205,11 +205,11 @@ export default function ZyklusKueche() {
       )}
 
       {view === "phase" && (
-        <PhasePage phaseKey={phaseKey} phase={phaseKey} p={p} cycleDay={cycleDay} onShiftDay={shiftDay} lang={lang} />
+        <PhasePage phaseKey={phaseKey} phase={phaseKey} p={p} cycleDay={cycleDay} lang={lang} />
       )}
 
       {view === "rezepte" && (
-        <RecipesPage phase={phaseKey} p={p} cycleDay={cycleDay} onShiftDay={shiftDay} lang={lang}
+        <RecipesPage phase={phaseKey} p={p} cycleDay={cycleDay} lang={lang}
           cycleStartDate={cycleStartDate} cycleLength={cycleLength}
           recipes={recipesWithLabel} loading={actions.loading} loadingMeal={actions.loadingMeal} onShowModal={() => setShowModal(true)}
           profile={profile} onSelectRecipe={actions.selectRecipe} onDeselectRecipe={actions.deselectRecipe} onReplaceRecipe={actions.replaceRecipe}

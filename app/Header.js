@@ -126,7 +126,7 @@ export function PhaseTeaser({ phase, p, cycleDay, cycleLength = 28, onShiftDay, 
 }
 
 // Kompakter Header für Unterseiten (Rezepte, Liste, Phase-Detail) mit Tag-Steuerung.
-export function CompactHeader({ phase, p, cycleDay, onShiftDay, lang }) {
+export function CompactHeader({ phase, p, cycleDay, lang }) {
   const t = useT(lang);
   return (
     <div style={{ background:p.gradient, borderRadius:24, padding:0, position:"relative",
@@ -141,15 +141,7 @@ export function CompactHeader({ phase, p, cycleDay, onShiftDay, lang }) {
         </div>
         <div style={{ textAlign:"right" }}>
           <div style={{ fontSize:9, color:p.eyebrow, marginBottom:6, textTransform:"uppercase", letterSpacing:1, opacity:0.8 }}>{t("dayLabel")}</div>
-          <div style={{ display:"flex", alignItems:"center", gap:7 }}>
-            <button onClick={()=>onShiftDay(-1)} style={{
-              width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.18)",
-              border:"1px solid rgba(255,255,255,0.3)", color:p.textBright, fontSize:14, cursor:"pointer" }}>−</button>
-            <span style={{ fontWeight:700, fontSize:20, color:p.textBright, minWidth:26, textAlign:"center" }}>{cycleDay}</span>
-            <button onClick={()=>onShiftDay(1)} style={{
-              width:24, height:24, borderRadius:"50%", background:"rgba(255,255,255,0.18)",
-              border:"1px solid rgba(255,255,255,0.3)", color:p.textBright, fontSize:14, cursor:"pointer" }}>+</button>
-          </div>
+          <div style={{ fontWeight:700, fontSize:20, color:p.textBright, minWidth:26, textAlign:"center" }}>{cycleDay}</div>
         </div>
       </div>
     </div>

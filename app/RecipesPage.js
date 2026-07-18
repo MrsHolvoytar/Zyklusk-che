@@ -8,7 +8,7 @@ import { loc, PHASE_FOODS } from "./data";
 import { exportRecipesPDF } from "./pdfExport";
 
 export default function RecipesPage({
-  phase, p, cycleDay, onShiftDay, lang,
+  phase, p, cycleDay, lang,
   recipes, loading, loadingMeal, onShowModal,
   profile, onSelectRecipe, onDeselectRecipe, onReplaceRecipe, onToggleFavorite, onChangePortions,
   onClearUnselected, onUpdateWhy, favorites,
@@ -28,7 +28,7 @@ export default function RecipesPage({
 
   return (
     <div>
-      <CompactHeader phase={phase} p={p} cycleDay={cycleDay} onShiftDay={onShiftDay} lang={lang} />
+      <CompactHeader phase={phase} p={p} cycleDay={cycleDay} lang={lang} />
 
       <div style={{ display:"flex", background:"#FFFEFC", border:"1px solid rgba(160,140,170,0.27)", borderRadius:16, padding:4, marginBottom:16 }}>
         <div onClick={()=>setTab("cook")} style={{
