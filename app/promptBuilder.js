@@ -117,11 +117,32 @@ export function buildPromptForMeal({ mealKey, slots, moods, fridge = [], sameDay
 
   const langInstruction = lang === "en" ? "Respond in English." : "Antworte auf Deutsch.";
 
-  // Interner Rechenweg: Claude leitet kcal/Protein zutatenweise her, bevor es
-  // die Endsumme angibt - verbessert die Genauigkeit ohne zusätzlichen API-Call.
-  // Der Rechenweg selbst erscheint NICHT in der App, nur die finale Summe pro
-  // Portion landet in den kcal/protein-Feldern der Antwort.
-  const nutritionAccuracyNote = "For accuracy, internally estimate the calories and protein contributed by each ingredient (using realistic per-100g nutrition values) and sum them before dividing by the number of servings to get the final per-portion kcal and protein values. Do NOT include this per-ingredient breakdown in your response - only output the final summed kcal and protein numbers in the JSON fields.";
+  // Zutaten als STRUKTURIERTE Objekte statt Freitext-Zeilen anfragen: das macht
+  // das Skalieren, Zusammenzaehlen in der Einkaufsliste und die Kategorisierung
+  // zuverlaessig, weil "name" garantiert NUR der reine Zutatenname ist (ohne
+  // Mengenangaben oder Klammerzusaetze, die vorher das Zusammenfuehren in der
+  // Einkaufsliste verhindert haben). Zusatzinfos wie "in Wuerfeln" oder
+  // "ungesalzen" gehoeren ins separate "note"-Feld, nicht in "name".
+  //
+  // WICHTIG fuer die Naehrwert-Genauigkeit: kcal/Protein werden NICHT mehr als
+  // unsichtbare Kopfrechnung fuer das ganze Rezept verlangt (das war fehleranfaellig -
+  // mehrstufige Rechnungen ohne sichtbaren Rechenweg gehen bei KI-Modellen leicht
+  // daneben). Stattdessen schaetzt die KI kcal/Protein NUR pro einzelner Zutat fuer
+  // deren tatsaechliche Menge im Rezept - eine einfache Nachschlage-Aufgabe statt
+  // einer mehrstufigen Rechnung. Die App summiert diese Werte anschliessend selbst
+  // (garantiert fehlerfreie Arithmetik) und teilt durch die Portionenzahl.
+  const ingredientSchemaNote = `Each ingredient MUST be a structured object, not a free-text line:
+{"amount": 200, "unit": "g", "name": "zucchini", "note": "diced" or null, "category": "...", "kcal": 36, "protein": 2.6}
+- "name": ONLY the plain ingredient name (e.g. "zucchini", not "2 medium zucchini (approx. 400g)"). Never include quantities, brand notes, or parenthetical remarks in "name".
+- "amount": a plain number already scaled to the servings count (0 if not meaningfully quantifiable, e.g. "salt and pepper to taste").
+- "unit": short unit like "g", "kg", "ml", "l", "tbsp", "tsp", "pcs" (lang-appropriate) or "" if none.
+- "note": OPTIONAL short prep detail ("diced", "unsalted", "fresh") or null - never merge multiple distinct ingredients into one entry (e.g. split "salt, pepper, parsley" into three separate ingredient objects, each with its own name).
+- "category": one of exactly these: "Obst & Gemüse", "Brot & Getreide", "Milchprodukte & Eier", "Fleisch & Fisch", "Hülsenfrüchte & Konserven", "Nüsse & Samen", "Gewürze & Sonstiges". Dried/powdered spice forms of a vegetable (e.g. paprika powder, onion powder, garlic powder) count as "Gewürze & Sonstiges", not "Obst & Gemüse".
+- "kcal" and "protein" (grams): the TOTAL calories/protein contributed by THIS ingredient at the "amount" given (not per 100g) - base this on realistic, well-known nutrition values for that specific food and amount. This is a per-ingredient lookup, not a recipe-wide calculation - focus only on getting each individual ingredient's own number right.`;
+
+  // Verhindert irrefuehrende Rezeptnamen (z.B. "...-Sardellen-Bowl" obwohl das
+  // Rezept komplett vegan ist und keine Sardellen enthaelt).
+  const nameAccuracyNote = "The recipe name must only reference ingredients that are actually used in the ingredients list - never name-drop an ingredient (e.g. an animal product, nut, or allergen) that isn't genuinely part of the recipe, even for a catchy title.";
 
   return `Create ${count} different ${mealLabel} recipe${count > 1 ? "s" : ""} for a person tracking their menstrual cycle. ${langInstruction}
 ${dessertNote}
@@ -135,9 +156,11 @@ ${slotAssignment}
 Phase-appropriate foods by day (from a curated source list) - aim for roughly 70% of main ingredients to come from these lists, the rest can be freely and realistically chosen to make the recipe authentic and varied:
 ${phaseFoodLines}
 User info: ${userNote}.
-kcal and protein in the JSON are PER SERVING. ${nutritionAccuracyNote}
+${mealKcal ? `Aim for roughly ${mealKcal} kcal per serving overall (guideline for ingredient choices, not a hard constraint).` : ""}${mealProtein ? ` Aim for roughly ${mealProtein}g protein per serving.` : ""}
 You may research additional nutrition facts (e.g. a specific product's vitamin content) from trustworthy sources to justify ingredient choices for the relevant phase.
 IMPORTANT for variety: each of the ${count} recipes must be genuinely different from each other (different main ingredients, different preparation styles) - do not repeat similar dishes.
+${nameAccuracyNote}
+${ingredientSchemaNote}
 Respond ONLY with a JSON array of ${count} recipe object(s), no markdown. Set each recipe's basePortions to the servings from its assignment above, and scale the ingredient amounts to that number of servings:
-[{"name":"...","description":"1-2 sentences","kcal":${mealKcal || 400},"protein":${mealProtein || 25},"time":"30 min","basePortions":4,"mainIngredients":["ingredient1","ingredient2"],"seedCycling":"short practical tip or null","ingredients":["200g ingredient1","1 tbsp ingredient2"],"ingredientCategories":{"ingredient1":"Obst & Gemüse"},"steps":["step 1","step 2","step 3"]}]`;
+[{"name":"...","description":"1-2 sentences","time":"30 min","basePortions":4,"mainIngredients":["ingredient1","ingredient2"],"seedCycling":"short practical tip or null","ingredients":[{"amount":200,"unit":"g","name":"ingredient1","note":null,"category":"Obst & Gemüse","kcal":36,"protein":2.6}],"steps":["step 1","step 2","step 3"]}]`;
 }

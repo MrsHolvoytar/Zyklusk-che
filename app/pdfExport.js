@@ -24,6 +24,16 @@ const CAT_COLORS = [
   [122, 94, 128],  // Pflaume
 ];
 
+// Baut den Anzeige-Text einer Zutat fuers PDF - unterstuetzt sowohl das neue
+// strukturierte Format ({amount,unit,name,note}) als auch alte Freitext-Zeilen
+// aus vor diesem Update gespeicherten Rezepten.
+function formatIngredientLine(ing) {
+  if (typeof ing === "string") return ing;
+  const amountPart = ing.amount ? `${ing.amount}${ing.unit ? " " + ing.unit : ""}` : "";
+  const notePart = ing.note ? ` (${ing.note})` : "";
+  return `${amountPart}${amountPart ? " " : ""}${ing.name}${notePart}`.trim();
+}
+
 const PAGE_W = 210;
 const HEADER_H = 42;   // mm (1200x240px im Verhältnis 5:1)
 const MARGIN = 22;
@@ -85,7 +95,9 @@ function phaseSubtitle(lang, ctx) {
 export function exportShoppingListPDF(byCategory, lang, ctx = null) {
   const doc = setupDoc();
   const title = lang === "en" ? "Shopping List" : "Einkaufsliste";
-  let y = drawHeader(doc, title, phaseSubtitle(lang, ctx));
+  // Bewusst OHNE Tag/Phase-Untertitel: die Liste buendelt Zutaten ueber
+  // mehrere Tage/Phasen hinweg, ein einzelner "heutiger" Tag waere irrefuehrend.
+  let y = drawHeader(doc, title, null);
 
   let catIdx = 0;
   Object.entries(byCategory).forEach(([cat, items]) => {
@@ -140,6 +152,12 @@ export function exportRecipesPDF(recipeList, lang, ctx = null) {
   const len = ctx?.cycleLength || DEFAULT_CYCLE_LENGTH;
 
   recipeList.forEach((recipe, idx) => {
+    // Jedes Rezept startet auf einer eigenen Seite statt sich die Seite mit
+    // anderen Rezepten zu teilen - einfacher zum Ausdrucken und Mitnehmen.
+    if (idx > 0) {
+      doc.addPage();
+      y = 24;
+    }
     const accent = CAT_COLORS[idx % CAT_COLORS.length];
     y = ensureSpace(doc, y, 42);
 
@@ -196,7 +214,7 @@ export function exportRecipesPDF(recipeList, lang, ctx = null) {
       doc.setLineWidth(0.3);
       doc.circle(MARGIN + 1.7, y - 1.2, 1.4, "S");
       doc.setTextColor(...INK);
-      doc.text(ing, MARGIN + 6.5, y);
+      doc.text(formatIngredientLine(ing), MARGIN + 6.5, y);
       y += 5.6;
     });
     y += 4;
@@ -232,11 +250,6 @@ export function exportRecipesPDF(recipeList, lang, ctx = null) {
     }
 
     y += 8;
-    if (idx < recipeList.length - 1) {
-      y = ensureSpace(doc, y, 12);
-      drawFlowerDivider(doc, y - 4);
-      y += 6;
-    }
   });
 
   y = ensureSpace(doc, y, 14);

@@ -102,7 +102,7 @@ export default function ZyklusKueche() {
   const removeFridgeItem = (idx) => setFridgeItems(prev => prev.filter((_, j) => j !== idx));
 
   if (!profileHydrated) return null;
-  if (!profile) return <div style={{ ...S.root, background: "linear-gradient(175deg,#FBF7F8 0%,#F5F0F4 100%)", minHeight: "100vh" }}><Onboarding onDone={handleOnboardingDone} lang={lang} onLangChange={setLang} /></div>;
+  if (!profile) return <div style={{ ...S.root, background: "linear-gradient(175deg,#FBF7F8 0%,#F5F0F4 100%)", minHeight: "100dvh" }}><Onboarding onDone={handleOnboardingDone} lang={lang} onLangChange={setLang} /></div>;
 
   // Rezepte werden für die Anzeige mit ihrem übersetzten "meal"-Label angereichert,
   // damit die Gruppierung im UI funktioniert, unabhängig von der UI-Sprache
@@ -128,7 +128,7 @@ export default function ZyklusKueche() {
   ].join(", ") : p.bgColor;
 
   return (
-    <div style={{ position: "relative", minHeight: "100vh", background: washBg, transition: "background 0.5s ease" }}>
+    <div style={{ position: "relative", minHeight: "100dvh", background: washBg, transition: "background 0.5s ease" }}>
       <BotanicalCorner ui={p.ui} />
       <div style={{ ...S.root, position: "relative", zIndex: 1 }}>
       {showModal && <PlanModal phase={phaseKey} p={p} lang={lang} persons={Number(profile.persons) || Number(profile.portions) || 2} onSubmit={prefs => { setShowModal(false); actions.generate(prefs); setView("rezepte"); }} onClose={() => setShowModal(false)} />}
@@ -211,7 +211,7 @@ export default function ZyklusKueche() {
       {view === "rezepte" && (
         <RecipesPage phase={phaseKey} p={p} cycleDay={cycleDay} lang={lang}
           cycleStartDate={cycleStartDate} cycleLength={cycleLength}
-          recipes={recipesWithLabel} loading={actions.loading} loadingMeal={actions.loadingMeal} onShowModal={() => setShowModal(true)}
+          recipes={recipesWithLabel} loading={actions.loading} loadingMeal={actions.loadingMeal} generationError={actions.generationError} onShowModal={() => setShowModal(true)}
           profile={profile} onSelectRecipe={actions.selectRecipe} onDeselectRecipe={actions.deselectRecipe} onReplaceRecipe={actions.replaceRecipe}
           onToggleFavorite={(id) => actions.toggleFavorite(id, phaseKey)} onChangePortions={actions.changePortions}
           onClearUnselected={actions.clearUnselected} onUpdateWhy={actions.updateWhy} favorites={favoritesWithLabel}

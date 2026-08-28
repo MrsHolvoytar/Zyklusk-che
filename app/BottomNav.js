@@ -12,7 +12,7 @@ export default function BottomNav({ active, onChange, phaseColor, lang }) {
   ];
 
   return (
-    <div style={{
+    <nav aria-label={lang==="en"?"Main navigation":"Hauptnavigation"} style={{
       position:"fixed", bottom:0, left:0, right:0, zIndex:50,
       display:"flex", justifyContent:"center", padding:"0 16px 16px",
     }}>
@@ -25,9 +25,11 @@ export default function BottomNav({ active, onChange, phaseColor, lang }) {
         {items.map(({ key, label, Icon }) => {
           const isActive = active === key;
           return (
-            <div key={key} onClick={()=>onChange(key)} style={{
+            <button key={key} onClick={()=>onChange(key)} aria-current={isActive?"page":undefined}
+              className="tappable" style={{
               cursor:"pointer", display:"flex", flexDirection:"column",
               alignItems:"center", gap:4, padding:"2px 10px",
+              background:"transparent", border:"none", font:"inherit",
             }}>
               {isActive ? (
                 <div style={{
@@ -47,10 +49,10 @@ export default function BottomNav({ active, onChange, phaseColor, lang }) {
                 fontSize:9.5, fontWeight: isActive?700:600,
                 color: isActive?phaseColor.deep:"#B3A3B6",
               }}>{label}</span>
-            </div>
+            </button>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

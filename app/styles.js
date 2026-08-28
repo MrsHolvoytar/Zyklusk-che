@@ -2,7 +2,7 @@ export const S = {
   root: {
     fontFamily: "'Quicksand',system-ui,sans-serif",
     maxWidth: 580, margin: "0 auto", padding: "18px 16px 100px",
-    background: "transparent", minHeight: "100vh", color: "#443A46",
+    background: "transparent", minHeight: "100dvh", color: "#443A46",
   },
   card: {
     background: "rgba(255,255,255,0.82)", borderRadius: 18, padding: 17,

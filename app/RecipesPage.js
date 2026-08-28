@@ -9,7 +9,7 @@ import { exportRecipesPDF } from "./pdfExport";
 
 export default function RecipesPage({
   phase, p, cycleDay, lang,
-  recipes, loading, loadingMeal, onShowModal,
+  recipes, loading, loadingMeal, generationError, onShowModal,
   profile, onSelectRecipe, onDeselectRecipe, onReplaceRecipe, onToggleFavorite, onChangePortions,
   onClearUnselected, onUpdateWhy, favorites,
   fridgeItems, fridgeInput, onFridgeInputChange, onAddFridgeItem, onRemoveFridgeItem,
@@ -30,22 +30,22 @@ export default function RecipesPage({
     <div>
       <CompactHeader phase={phase} p={p} cycleDay={cycleDay} lang={lang} />
 
-      <div style={{ display:"flex", background:"#FFFEFC", border:"1px solid rgba(160,140,170,0.27)", borderRadius:16, padding:4, marginBottom:16 }}>
-        <div onClick={()=>setTab("cook")} style={{
+      <div role="tablist" style={{ display:"flex", background:"#FFFEFC", border:"1px solid rgba(160,140,170,0.27)", borderRadius:16, padding:4, marginBottom:16 }}>
+        <button role="tab" aria-selected={tab==="cook"} onClick={()=>setTab("cook")} className="tappable" style={{
           flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
-          background: tab==="cook" ? p.deep : "transparent",
+          background: tab==="cook" ? p.deep : "transparent", border:"none", font:"inherit",
           color: tab==="cook" ? "#FFFBF8" : "#97889A", fontSize:13, fontWeight:600,
-        }}>{t("toCook")}</div>
-        <div onClick={()=>setTab("favorites")} style={{
+        }}>{t("toCook")}</button>
+        <button role="tab" aria-selected={tab==="favorites"} onClick={()=>setTab("favorites")} className="tappable" style={{
           flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
-          background: tab==="favorites" ? p.deep : "transparent",
+          background: tab==="favorites" ? p.deep : "transparent", border:"none", font:"inherit",
           color: tab==="favorites" ? "#FFFBF8" : "#97889A", fontSize:13, fontWeight:600,
-        }}>{t("favorites")}</div>
-        <div onClick={()=>setTab("fridge")} style={{
+        }}>{t("favorites")}</button>
+        <button role="tab" aria-selected={tab==="fridge"} onClick={()=>setTab("fridge")} className="tappable" style={{
           flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
-          background: tab==="fridge" ? p.deep : "transparent",
+          background: tab==="fridge" ? p.deep : "transparent", border:"none", font:"inherit",
           color: tab==="fridge" ? "#FFFBF8" : "#97889A", fontSize:13, fontWeight:600,
-        }}>{t("fridge")}</div>
+        }}>{t("fridge")}</button>
       </div>
 
       {tab === "cook" && (
@@ -54,6 +54,14 @@ export default function RecipesPage({
             {loading ? `${loadingMeal}...` : t("planRecipes")}
           </button>
           {loading && <Spinner text="..." />}
+          {!loading && generationError && (
+            <div style={{
+              background:"rgba(165,100,126,0.1)", border:"1px solid rgba(165,100,126,0.3)",
+              borderRadius:14, padding:"12px 15px", marginTop:12, fontSize:13, color:"#A5647E", lineHeight:1.5,
+            }}>
+              {generationError}
+            </div>
+          )}
           {!loading && cookRecipes.length === 0 && (
             <p style={{ ...S.sub, textAlign:"center", marginTop:18 }}>{t("nothingPlanned")}</p>
           )}
@@ -145,6 +153,14 @@ export default function RecipesPage({
           </div>
 
           {fridgeLoading && <Spinner text="..." />}
+          {!fridgeLoading && generationError && (
+            <div style={{
+              background:"rgba(165,100,126,0.1)", border:"1px solid rgba(165,100,126,0.3)",
+              borderRadius:14, padding:"12px 15px", marginTop:12, fontSize:13, color:"#A5647E", lineHeight:1.5,
+            }}>
+              {generationError}
+            </div>
+          )}
           {fridgeRecipes.length > 0 && (
             <div style={{ marginTop:16 }}>
               {fridgeRecipes.map((r) => (

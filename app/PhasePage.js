@@ -44,17 +44,17 @@ export default function PhasePage({ phaseKey, phase, p, cycleDay, lang }) {
     <div>
       <CompactHeader phase={phase} p={p} cycleDay={cycleDay} lang={lang} />
 
-      <div style={{ display:"flex", background:"#FFFEFC", border:"1px solid rgba(160,140,170,0.27)", borderRadius:16, padding:4, marginBottom:16 }}>
-        <div onClick={()=>setTab("wissen")} style={{
-          flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
+      <div role="tablist" style={{ display:"flex", background:"#FFFEFC", border:"1px solid rgba(160,140,170,0.27)", borderRadius:16, padding:4, marginBottom:16 }}>
+        <button role="tab" aria-selected={tab==="wissen"} onClick={()=>setTab("wissen")} className="tappable" style={{
+          flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer", border:"none", font:"inherit",
           background: tab==="wissen" ? p.deep : "transparent",
           color: tab==="wissen" ? "#FFFBF8" : "#97889A", fontSize:13, fontWeight:600,
-        }}>{lang==="en"?"Knowledge":"Hintergrundwissen"}</div>
-        <div onClick={()=>setTab("zutaten")} style={{
-          flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer",
+        }}>{lang==="en"?"Knowledge":"Hintergrundwissen"}</button>
+        <button role="tab" aria-selected={tab==="zutaten"} onClick={()=>setTab("zutaten")} className="tappable" style={{
+          flex:1, textAlign:"center", padding:"9px 0", borderRadius:13, cursor:"pointer", border:"none", font:"inherit",
           background: tab==="zutaten" ? p.deep : "transparent",
           color: tab==="zutaten" ? "#FFFBF8" : "#97889A", fontSize:13, fontWeight:600,
-        }}>{lang==="en"?"Ingredients":"Zutaten"}</div>
+        }}>{lang==="en"?"Ingredients":"Zutaten"}</button>
       </div>
 
       {tab === "wissen" && (

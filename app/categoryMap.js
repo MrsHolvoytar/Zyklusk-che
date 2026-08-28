@@ -49,6 +49,10 @@ const CATEGORY_LOOKUP = {
 
 export function lookupCategory(ingredientName, fallback) {
   const norm = normalizeIngredientName(ingredientName);
+  // Pulverform-Gewürze zuerst abfangen: "Paprikapulver", "Zwiebelpulver" etc.
+  // enthalten zwar den Namen des Gemüses als Teilstring (z.B. "paprika" in
+  // "paprikapulver"), sind aber ein Gewürz, kein frisches Gemüse.
+  if (/pulver|powder/i.test(ingredientName || "")) return "Gewürze & Sonstiges";
   // exakte Übereinstimmung
   if (CATEGORY_LOOKUP[norm]) return CATEGORY_LOOKUP[norm];
   // Teilstring-Suche für Mehrwort-Zutaten (z.B. "rote linse" enthält "linse")

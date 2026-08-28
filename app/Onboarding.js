@@ -49,7 +49,7 @@ export default function Onboarding({ onDone, lang, onLangChange }) {
       <h2 style={S.h2}>{t("dietType")}</h2>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", margin:"14px 0 22px" }}>
         {DIETS.map(([v,l])=>(
-          <button key={v} onClick={()=>setProfile(p=>({...p,diet:v}))}
+          <button key={v} onClick={()=>setProfile(p=>({...p,diet:v}))} aria-pressed={profile.diet===v} className="tappable"
             style={{ ...S.pill, flex:"1 1 45%", minWidth:110, textAlign:"center",
               background:profile.diet===v?"#7A5E80":"rgba(255,255,255,0.5)",
               color:profile.diet===v?"#FFFBF5":"#5E5162",
@@ -103,15 +103,15 @@ export default function Onboarding({ onDone, lang, onLangChange }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:8 }}>
-        <div style={{ display:"flex", background:"rgba(255,255,255,0.6)", borderRadius:999, padding:3 }}>
-          <div onClick={()=>onLangChange?.("de")} style={{
-            padding:"5px 12px", borderRadius:999, fontSize:12, fontWeight:700, cursor:"pointer",
+        <div role="group" aria-label="Language" style={{ display:"flex", background:"rgba(255,255,255,0.6)", borderRadius:999, padding:3 }}>
+          <button onClick={()=>onLangChange?.("de")} aria-pressed={lang==="de"} className="tappable" style={{
+            padding:"5px 12px", borderRadius:999, fontSize:12, fontWeight:700, cursor:"pointer", border:"none", font:"inherit",
             background: lang==="de" ? "#7A5E80" : "transparent", color: lang==="de" ? "#FFFBF5" : "#7A5E80",
-          }}>DE</div>
-          <div onClick={()=>onLangChange?.("en")} style={{
-            padding:"5px 12px", borderRadius:999, fontSize:12, fontWeight:700, cursor:"pointer",
+          }}>DE</button>
+          <button onClick={()=>onLangChange?.("en")} aria-pressed={lang==="en"} className="tappable" style={{
+            padding:"5px 12px", borderRadius:999, fontSize:12, fontWeight:700, cursor:"pointer", border:"none", font:"inherit",
             background: lang==="en" ? "#7A5E80" : "transparent", color: lang==="en" ? "#FFFBF5" : "#7A5E80",
-          }}>EN</div>
+          }}>EN</button>
         </div>
       </div>
       <div style={{ textAlign:"center", marginBottom:24 }}>
@@ -127,6 +127,16 @@ export default function Onboarding({ onDone, lang, onLangChange }) {
           ))}
         </div>
         {steps[step]}
+        {/* Zurueck-Option: vorher gab es keine Moeglichkeit, einen Tippfehler in
+            einem frueheren Schritt zu korrigieren, ausser die App neu zu laden. */}
+        {step > 0 && (
+          <button onClick={()=>setStep(s=>s-1)} className="tappable" style={{
+            marginTop:12, width:"100%", textAlign:"center", background:"transparent", border:"none",
+            color:"#97889A", fontSize:12.5, cursor:"pointer", padding:6, font:"inherit",
+          }}>
+            {lang==="en" ? "← Back" : "← Zurück"}
+          </button>
+        )}
       </div>
     </div>
   );

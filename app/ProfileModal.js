@@ -47,13 +47,14 @@ export default function ProfileModal({ profile, onSave, onClose, lang, startDate
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(52,42,56,.4)", zIndex:100,
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(52,42,56,.4)", zIndex:100,
       display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div style={{ ...S.card, width:"100%", maxWidth:580, borderRadius:"26px 26px 0 0",
+      <div onClick={(e)=>e.stopPropagation()} style={{ ...S.card, width:"100%", maxWidth:580, borderRadius:"26px 26px 0 0",
         margin:0, maxHeight:"88vh", overflowY:"auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
           <h3 style={{ ...S.h2, fontSize:17, margin:0 }}>{lang==="en"?"Profile":"Profil"}</h3>
-          <span onClick={onClose} style={{ cursor:"pointer", color:"#97889A", fontSize:24, lineHeight:1 }}>×</span>
+          <button onClick={onClose} className="tappable" aria-label={lang==="en"?"Close":"Schliessen"}
+            style={{ cursor:"pointer", color:"#97889A", fontSize:24, lineHeight:1, background:"transparent", border:"none", padding:4 }}>×</button>
         </div>
 
         <label style={S.label}>{t("name")}</label>
@@ -64,16 +65,16 @@ export default function ProfileModal({ profile, onSave, onClose, lang, startDate
 
         <label style={S.label}>{t("cycleLength")}</label>
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:14 }}>
-          <button style={{ ...S.pill, width:42 }} onClick={()=>setDraft(p=>({...p,cycleLength:Math.max(21,(Number(p.cycleLength)||28)-1)}))}>−</button>
+          <button className="tappable" style={{ ...S.pill, width:42 }} aria-label={lang==="en"?"Decrease":"Verringern"} onClick={()=>setDraft(p=>({...p,cycleLength:Math.max(21,(Number(p.cycleLength)||28)-1)}))}>−</button>
           <span style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:20, fontWeight:600, minWidth:40, textAlign:"center" }}>{Number(draft.cycleLength)||28}</span>
-          <button style={{ ...S.pill, width:42 }} onClick={()=>setDraft(p=>({...p,cycleLength:Math.min(40,(Number(p.cycleLength)||28)+1)}))}>+</button>
+          <button className="tappable" style={{ ...S.pill, width:42 }} aria-label={lang==="en"?"Increase":"Erhöhen"} onClick={()=>setDraft(p=>({...p,cycleLength:Math.min(40,(Number(p.cycleLength)||28)+1)}))}>+</button>
           <span style={{ fontSize:11.5, color:"#97889A" }}>{t("cycleLengthHint")}</span>
         </div>
 
         <label style={S.label}>{t("dietType")}</label>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
           {DIETS.map(([v,l])=>(
-            <button key={v} onClick={()=>setDraft(p=>({...p,diet:v}))}
+            <button key={v} onClick={()=>setDraft(p=>({...p,diet:v}))} aria-pressed={draft.diet===v} className="tappable"
               style={{ ...S.pill, flex:"1 1 45%", minWidth:110, textAlign:"center",
                 background:draft.diet===v?"#7A5E80":"rgba(255,255,255,0.5)",
                 color:draft.diet===v?"#FFFBF5":"#5E5162",

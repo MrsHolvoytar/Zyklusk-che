@@ -47,6 +47,7 @@ export default function RecipeCard({
   const [loadingWhy, setLoadingWhy] = useState(false);
   const [altOpen, setAltOpen] = useState(null);
   const [altText, setAltText] = useState({});
+  const [altErrored, setAltErrored] = useState({});
   const [loadingAlt, setLoadingAlt] = useState(null);
 
   const portions = recipe.portions || recipe.basePortions || Number(profile.persons) || Number(profile.portions) || 2;
@@ -67,7 +68,7 @@ export default function RecipeCard({
 
   const loadWhy = async (e) => {
     e.stopPropagation();
-    if (why) { setWhyOpen(o=>!o); return; }
+    if (why && !recipe.whyErrored) { setWhyOpen(o=>!o); return; }
     setWhyOpen(true);
 
     // Alle fuer diese Phase relevanten Zutaten des Rezepts ermitteln. Statt zu
@@ -77,8 +78,10 @@ export default function RecipeCard({
     // geprueft: kommt ein Phasen-Zutat-Name als Teilstring irgendwo im rohen
     // Zutatentext vor? Das ist robust gegenueber Mengen, Klammerzusaetzen und
     // mehreren Zutaten in einer Zeile.
-    const rawIngredientText = (recipe.ingredients?.length ? recipe.ingredients : (recipe.mainIngredients || []))
-      .join(" | ").toLowerCase();
+    const rawIngredientText = (recipe.ingredients?.length
+      ? recipe.ingredients.map(ing => typeof ing === "string" ? ing : `${ing.name} ${ing.note || ""}`)
+      : (recipe.mainIngredients || [])
+    ).join(" | ").toLowerCase();
     let relevant = [];
     if (phaseKey && rawIngredientText) {
       const phaseData = PHASE_FOODS[phaseKey];
@@ -102,8 +105,11 @@ export default function RecipeCard({
       setLoadingWhy(true);
       try {
         const data = await fetchWarum(recipe.mainIngredients?.join(", "), loc(p.label, lang), lang);
-        onUpdateWhy?.(recipe.id, data.text, data.source);
-      } catch(err) { onUpdateWhy?.(recipe.id, "Error: " + err.message, null); }
+        onUpdateWhy?.(recipe.id, data.text, data.source, false);
+      } catch(err) {
+        console.error(err);
+        onUpdateWhy?.(recipe.id, lang==="en" ? "Sorry, the research didn't work out. Tap \"Background\" again to retry." : "Die Recherche hat leider nicht geklappt. Tippe erneut auf \"Hintergrund\", um es nochmal zu versuchen.", null, true);
+      }
       setLoadingWhy(false);
       return;
     }
@@ -119,7 +125,7 @@ export default function RecipeCard({
     const dbSources = withFact.map(m => m.fact.source);
 
     if (missing.length === 0) {
-      onUpdateWhy?.(recipe.id, dbText, [...new Set(dbSources)].join("; "));
+      onUpdateWhy?.(recipe.id, dbText, [...new Set(dbSources)].join("; "), false);
       return;
     }
 
@@ -131,29 +137,51 @@ export default function RecipeCard({
       const data = await fetchWarum(missing.join(", "), loc(p.label, lang), lang);
       const combinedText = [dbText, data.text].filter(Boolean).join(" ");
       const combinedSource = [...new Set([...dbSources, data.source].filter(Boolean))].join("; ");
-      onUpdateWhy?.(recipe.id, combinedText, combinedSource);
+      onUpdateWhy?.(recipe.id, combinedText, combinedSource, false);
     } catch(err) {
       // Bei einem Fehler bei der Live-Recherche trotzdem die bereits
       // vorhandenen DB-Fakten anzeigen, statt "Hintergrund" leer zu lassen.
-      if (dbText) onUpdateWhy?.(recipe.id, dbText, [...new Set(dbSources)].join("; "));
-      else onUpdateWhy?.(recipe.id, "Error: " + err.message, null);
+      console.error(err);
+      if (dbText) onUpdateWhy?.(recipe.id, dbText, [...new Set(dbSources)].join("; "), false);
+      else onUpdateWhy?.(recipe.id, lang==="en" ? "Sorry, the research didn't work out. Tap \"Background\" again to retry." : "Die Recherche hat leider nicht geklappt. Tippe erneut auf \"Hintergrund\", um es nochmal zu versuchen.", null, true);
     }
     setLoadingWhy(false);
   };
 
   const loadAlternative = async (e, ingredientName) => {
     e.stopPropagation();
-    if (altText[ingredientName]) { setAltOpen(o => o === ingredientName ? null : ingredientName); return; }
+    // Nur ein erfolgreiches Ergebnis wird als "schon geladen" behandelt - ein
+    // vorheriger Fehler wird beim erneuten Klick wirklich neu versucht, statt
+    // nur denselben Fehlertext wieder anzuzeigen (der faelschlich "tippe erneut"
+    // vorschlug, ohne dass ein erneuter Klick tatsaechlich etwas bewirkte).
+    if (altText[ingredientName] && !altErrored[ingredientName]) {
+      setAltOpen(o => o === ingredientName ? null : ingredientName);
+      return;
+    }
     setAltOpen(ingredientName); setLoadingAlt(ingredientName);
     try {
       const text = await fetchAlternative(ingredientName, profile.diet, lang);
       setAltText(prev => ({ ...prev, [ingredientName]: text }));
-    } catch(err) { setAltText(prev => ({ ...prev, [ingredientName]: "Error: " + err.message })); }
+      setAltErrored(prev => ({ ...prev, [ingredientName]: false }));
+    } catch(err) {
+      console.error(err);
+      setAltText(prev => ({ ...prev, [ingredientName]: lang==="en" ? "Sorry, this didn't work. Tap again to retry." : "Das hat leider nicht geklappt. Tippe erneut, um es nochmal zu versuchen." }));
+      setAltErrored(prev => ({ ...prev, [ingredientName]: true }));
+    }
     setLoadingAlt(null);
   };
 
   const factor = portions / (recipe.basePortions || personsUsed || 2);
+  // Unterstuetzt sowohl das neue strukturierte Zutaten-Format ({amount,unit,name,note})
+  // als auch alte, vor diesem Update gespeicherte Rezepte mit Freitext-Zeilen.
   const scaled = recipe.ingredients?.map(ing => {
+    if (typeof ing !== "string") {
+      const n = (Number(ing.amount) || 0) * factor;
+      const rounded = n < 10 ? Math.round(n * 10) / 10 : Math.round(n);
+      const amountOnly = rounded ? `${rounded}${ing.unit ? " " + ing.unit : ""}` : "";
+      const notePart = ing.note ? ` (${ing.note})` : "";
+      return { display: `${amountOnly}${amountOnly ? " " : ""}${ing.name}${notePart}`.trim(), name: ing.name, amountOnly };
+    }
     const m = ing.match(/^([\d.,]+)\s*(g|kg|ml|l|EL|TL|tbsp|tsp|Stk|Stück|Prise|Bund|Tasse|Scheibe[n]?)?\s*(.+)$/i);
     if (!m) return { display: ing, name: ing };
     const n = parseFloat(m[1].replace(",",".")) * factor;
@@ -200,18 +228,23 @@ export default function RecipeCard({
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
           {showCookedToggle ? (
-            <div onClick={(e)=>{e.stopPropagation(); onToggleCooked?.(recipe.id);}} style={{
-              width:24, height:24, borderRadius:"50%",
+            <button onClick={(e)=>{e.stopPropagation(); onToggleCooked?.(recipe.id);}}
+              className="tappable" aria-pressed={isCooked}
+              aria-label={lang==="en"?"Mark as cooked":"Als gekocht markieren"} style={{
+              width:24, height:24, borderRadius:"50%", padding:0,
               border: `1.5px solid ${isCooked ? "#9DB98A" : "rgba(160,140,170,0.4)"}`,
               background: isCooked ? "#9DB98A" : "transparent",
               display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
             }}>
               {isCooked && <span style={{ color:"#fff", fontSize:12 }}>✓</span>}
-            </div>
+            </button>
           ) : (
-            <span onClick={(e)=>{e.stopPropagation(); onToggleFavorite?.(recipe.id);}}>
+            <button onClick={(e)=>{e.stopPropagation(); onToggleFavorite?.(recipe.id);}}
+              className="tappable" aria-pressed={isFavorite}
+              aria-label={lang==="en"?"Toggle favorite":"Favorit umschalten"}
+              style={{ background:"transparent", border:"none", padding:0, cursor:"pointer", display:"flex" }}>
               <Icons.Heart size={19} filled={isFavorite} color={isFavorite?p.accent:"#C6B8C8"} outline={isFavorite?p.deep:"#C6B8C8"} />
-            </span>
+            </button>
           )}
           <Icons.ChevronRight size={14} color="#B3A3B6" />
         </div>
@@ -227,18 +260,23 @@ export default function RecipeCard({
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
         <div onClick={(e)=>{e.stopPropagation(); onToggleExpand?.();}} style={{ display:"flex", alignItems:"center", gap:8, flex:1, cursor:"pointer" }}>
           <div style={{ fontFamily:"'Baloo 2',sans-serif", fontSize:16.5, fontWeight:600, color:"#443A46" }}>{recipe.name}</div>
-          <span onClick={(e)=>{e.stopPropagation(); onToggleFavorite?.(recipe.id);}} style={{ cursor:"pointer", flexShrink:0 }}>
+          <button onClick={(e)=>{e.stopPropagation(); onToggleFavorite?.(recipe.id);}}
+            className="tappable" aria-pressed={isFavorite}
+            aria-label={lang==="en"?"Toggle favorite":"Favorit umschalten"}
+            style={{ cursor:"pointer", flexShrink:0, background:"transparent", border:"none", padding:0, display:"flex" }}>
             <Icons.Heart size={19} filled={isFavorite} color={isFavorite?p.accent:"#C6B8C8"} outline={isFavorite?p.deep:"#C6B8C8"} />
-          </span>
+          </button>
           {showCookedToggle && (
-            <div onClick={(e)=>{e.stopPropagation(); onToggleCooked?.(recipe.id);}} style={{
-              width:22, height:22, borderRadius:"50%", flexShrink:0,
+            <button onClick={(e)=>{e.stopPropagation(); onToggleCooked?.(recipe.id);}}
+              className="tappable" aria-pressed={isCooked}
+              aria-label={lang==="en"?"Mark as cooked":"Als gekocht markieren"} style={{
+              width:22, height:22, borderRadius:"50%", flexShrink:0, padding:0,
               border: `1.5px solid ${isCooked ? "#9DB98A" : "rgba(160,140,170,0.4)"}`,
               background: isCooked ? "#9DB98A" : "transparent",
               display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer",
             }}>
               {isCooked && <span style={{ color:"#fff", fontSize:12 }}>✓</span>}
-            </div>
+            </button>
           )}
         </div>
         <div onClick={(e)=>e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:5, background:"#F1EAF1", borderRadius:999, padding:"4px 11px", flexShrink:0, marginLeft:8 }}>
@@ -318,19 +356,19 @@ export default function RecipeCard({
 
       <div onClick={(e)=>e.stopPropagation()}>
         <div style={{ marginBottom:9 }}>
-          <div onClick={loadWhy} style={{ textAlign:"center", background:"transparent", border:"1px solid rgba(160,140,170,0.36)", borderRadius:13, padding:"9px 0", color:"#7A5E80", fontSize:12.5, fontWeight:600, cursor:"pointer" }}>{t("background")}</div>
+          <button onClick={loadWhy} className="tappable" style={{ width:"100%", textAlign:"center", background:"transparent", border:"1px solid rgba(160,140,170,0.36)", borderRadius:13, padding:"9px 0", color:"#7A5E80", fontSize:12.5, fontWeight:600, cursor:"pointer", font:"inherit" }}>{t("background")}</button>
         </div>
         {!hideActions && (
           <div style={{ display:"flex", gap:8 }}>
             {isSelected ? (
-              <div onClick={onDeselect} style={{ flex:1, textAlign:"center", background:p.accentSoft, borderRadius:13, padding:"9px 0", color:p.deep, fontSize:12.5, fontWeight:700, cursor:onDeselect?"pointer":"default" }}>
+              <button onClick={onDeselect} disabled={!onDeselect} className="tappable" style={{ flex:1, textAlign:"center", background:p.accentSoft, border:"none", borderRadius:13, padding:"9px 0", color:p.deep, fontSize:12.5, fontWeight:700, cursor:onDeselect?"pointer":"default", font:"inherit" }}>
                 {t("selected")}{onDeselect ? ` · ${t("deselect")}` : ""}
-              </div>
+              </button>
             ) : (
-              <div onClick={onSelect} style={{ flex:1, textAlign:"center", background:"rgba(110,139,94,0.12)", border:"1px solid rgba(110,139,94,0.3)", borderRadius:13, padding:"9px 0", color:"#57744A", fontSize:12.5, fontWeight:600, cursor:"pointer" }}>{t("select")}</div>
+              <button onClick={onSelect} className="tappable" style={{ flex:1, textAlign:"center", background:"rgba(110,139,94,0.12)", border:"1px solid rgba(110,139,94,0.3)", borderRadius:13, padding:"9px 0", color:"#57744A", fontSize:12.5, fontWeight:600, cursor:"pointer", font:"inherit" }}>{t("select")}</button>
             )}
             {!fromFridge && (
-              <div onClick={onReplace} style={{ flex:1, textAlign:"center", background:"rgba(165,100,126,0.08)", border:"1px solid rgba(165,100,126,0.3)", borderRadius:13, padding:"9px 0", color:"#A5647E", fontSize:12.5, fontWeight:600, cursor:"pointer" }}>{t("replace")}</div>
+              <button onClick={onReplace} className="tappable" style={{ flex:1, textAlign:"center", background:"rgba(165,100,126,0.08)", border:"1px solid rgba(165,100,126,0.3)", borderRadius:13, padding:"9px 0", color:"#A5647E", fontSize:12.5, fontWeight:600, cursor:"pointer", font:"inherit" }}>{t("replace")}</button>
             )}
           </div>
         )}

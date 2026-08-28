@@ -84,9 +84,12 @@ export default function ShoppingList({ items, onClear, onToggleChecked, onRemove
             <div key={cat} style={{ marginBottom:18 }}>
               <div style={{ fontWeight:700, color:"#A08FA6", fontSize:11, textTransform:"uppercase", letterSpacing:0.8, marginBottom:8 }}>{cat}</div>
               {byCategory[cat].map((item,i)=>(
-                <div key={i} onClick={()=>onToggleChecked(item.name)} style={{
-                  display:"flex", alignItems:"center", gap:10, padding:"7px 0",
+                <button key={i} onClick={()=>onToggleChecked(item.name)}
+                  role="checkbox" aria-checked={item.checked} className="tappable" style={{
+                  width:"100%", display:"flex", alignItems:"center", gap:10, padding:"7px 0",
                   borderBottom:"1px solid rgba(180,150,130,0.15)", cursor:"pointer",
+                  background:"transparent", border:"none", borderBottomWidth:1, borderBottomStyle:"solid",
+                  borderBottomColor:"rgba(180,150,130,0.15)", textAlign:"left", font:"inherit",
                 }}>
                   <div style={{
                     width:18, height:18, borderRadius:6, border:`1.5px solid ${item.checked?"#9DB98A":"rgba(160,140,170,0.4)"}`,
@@ -97,7 +100,7 @@ export default function ShoppingList({ items, onClear, onToggleChecked, onRemove
                   </div>
                   <span style={{ flex:1, fontSize:14, color: item.checked?"#B3A3B6":"#4A4050", textDecoration: item.checked?"line-through":"none" }}>{item.name}</span>
                   <span style={{ color: item.checked?"#C6B8C8":"#7A5E80", fontWeight:600, fontSize:14, textDecoration: item.checked?"line-through":"none" }}>{item.amount}</span>
-                </div>
+                </button>
               ))}
             </div>
           ))

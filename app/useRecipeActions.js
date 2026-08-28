@@ -8,26 +8,64 @@ import { buildSlots, todayYMD, isSlotExpired } from "./cycleUtils";
 import { normalizeIngredientName } from "./ingredientNormalize";
 import { lookupCategory } from "./categoryMap";
 
-async function fetchRecipes(prompt) {
+// Summiert kcal/Protein aus den Pro-Zutat-Werten und teilt durch die
+// Portionenzahl - diese Rechnung macht JS deterministisch und fehlerfrei,
+// statt die KI eine mehrstufige Kopfrechnung machen zu lassen (dort war
+// vorher eine spuerbare Ungenauigkeit moeglich). Legacy-Zutaten (alte,
+// gespeicherte Rezepte im Freitext-Format) haben keine kcal/Protein-Felder -
+// in dem Fall bleibt das Ergebnis null und der Aufrufer faellt auf den alten
+// Wert der KI zurueck, falls vorhanden.
+function computeNutritionFromIngredients(ingredients, servings) {
+  if (!ingredients?.length || !servings) return { kcal: null, protein: null };
+  let kcalSum = 0, proteinSum = 0, any = false;
+  for (const ing of ingredients) {
+    if (typeof ing === "string") continue;
+    if (ing.kcal != null) { kcalSum += Number(ing.kcal) || 0; any = true; }
+    if (ing.protein != null) { proteinSum += Number(ing.protein) || 0; any = true; }
+  }
+  if (!any) return { kcal: null, protein: null };
+  return { kcal: Math.round(kcalSum / servings), protein: Math.round((proteinSum / servings) * 10) / 10 };
+}
+
+async function fetchRecipes(prompt, count = 1) {
   const res = await fetch("/api/rezepte", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, count }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data.recipes;
 }
 
-function scaleIngredients(recipe, fallbackPortions) {
+// Skaliert Zutatenmengen auf die Zielportionen. Erwartet strukturierte
+// Zutaten-Objekte {amount, unit, name, note, category} - unterstuetzt aber
+// weiterhin das alte Freitext-Format ("200g Zucchini") als Fallback, damit
+// bereits gespeicherte Rezepte aus der Zeit vor diesem Update nicht kaputtgehen.
+export function scaleIngredients(recipe, fallbackPortions) {
   const portions = recipe.portions || recipe.basePortions || fallbackPortions || 2;
   const factor = portions / (recipe.basePortions || portions);
   return (recipe.ingredients || []).map(ing => {
-    const m = ing.match(/^([\d.,]+)\s*(.*)$/);
-    if (!m) return ing;
-    const n = parseFloat(m[1].replace(",", ".")) * factor;
+    if (typeof ing === "string") {
+      // Legacy-Format ("200g Zucchini"): Menge, Einheit und Name wie zuvor per
+      // Textmuster trennen, damit alte gespeicherte Rezepte weiterhin korrekt
+      // skaliert und in der Einkaufsliste gruppiert werden koennen.
+      const m = ing.match(/^([\d.,]+)\s*(g|kg|ml|l|EL|TL|tbsp|tsp|Stk|Stück|Prise|Bund|Tasse|Scheibe[n]?)?\s*(.+)$/i);
+      if (!m) return { amount: 0, unit: "", name: ing, note: null, category: null };
+      const n = parseFloat(m[1].replace(",", ".")) * factor;
+      const rounded = n < 10 ? Math.round(n * 10) / 10 : Math.round(n);
+      return { amount: rounded, unit: m[2] || "", name: m[3].trim(), note: null, category: null };
+    }
+    const n = (Number(ing.amount) || 0) * factor;
     const rounded = n < 10 ? Math.round(n * 10) / 10 : Math.round(n);
-    return `${rounded} ${m[2]}`;
+    return { ...ing, amount: rounded };
   });
+}
+
+// Baut aus einem skalierten Zutaten-Objekt den Anzeige-Text, z.B. "300 g Zucchini (in Würfeln)".
+export function formatIngredientDisplay(ing) {
+  const amountPart = ing.amount ? `${ing.amount}${ing.unit ? " " + ing.unit : ""}` : "";
+  const notePart = ing.note ? ` (${ing.note})` : "";
+  return `${amountPart}${amountPart ? " " : ""}${ing.name}${notePart}`.trim();
 }
 
 export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLength = 28, cycleStartDate = null }) {
@@ -44,6 +82,10 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
   const [loadingMeal, setLoadingMeal] = useState("");
   const [fridgeRecipes, setFridgeRecipes] = useState([]);
   const [fridgeLoading, setFridgeLoading] = useState(false);
+  // Sichtbare Fehlermeldung statt stillem console.error - vorher bekam die
+  // Nutzerin bei einem fehlgeschlagenen API-Aufruf ueberhaupt keine Rueckmeldung,
+  // die Rezepte fuer diese Mahlzeit erschienen einfach nicht, ohne Erklaerung.
+  const [generationError, setGenerationError] = useState(null);
 
   const runPromptForMeal = (mealKey, slots, moods, fridge, sameDayMainIngredients, effectivePersons) =>
     buildPromptForMeal({
@@ -54,11 +96,12 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   async function generateForMeals(mealKeys, slots, moods, fridge, effectivePersons, { onProgress, targetSetter }) {
     const sameDayMain = [];
+    const failedMeals = [];
     for (const mealKey of mealKeys) {
       onProgress?.(mealLabelFor(mealKey, lang));
       try {
         const prompt = runPromptForMeal(mealKey, slots, moods, fridge, sameDayMain, effectivePersons);
-        const parsed = await fetchRecipes(prompt);
+        const parsed = await fetchRecipes(prompt, slots.length);
         // Rezept i gehoert zu Slot i: Kalenderdaten + Portions-SNAPSHOT werden am
         // Rezept gespeichert. Der Snapshot sorgt dafuer, dass eine spaetere
         // Aenderung der Personenzahl bereits geplante Rezepte (und damit die
@@ -66,21 +109,36 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
         const withIds = (parsed || []).map((r, i) => {
           const slot = slots[Math.min(i, slots.length - 1)];
           const servings = slot.dates.length * effectivePersons;
+          const basePortions = Number(r.basePortions) || servings;
+          const nutrition = computeNutritionFromIngredients(r.ingredients, basePortions);
           return {
             ...r, mealKey, status: null, favorite: false, cooked: false, replaced: false,
             whyText: null, whySource: null, id: `${Date.now()}-${Math.random()}`,
             plannedDates: slot.dates, portions: servings,
-            basePortions: Number(r.basePortions) || servings, personsSnapshot: effectivePersons,
+            basePortions, personsSnapshot: effectivePersons,
+            kcal: nutrition.kcal ?? r.kcal ?? null, protein: nutrition.protein ?? r.protein ?? null,
           };
         });
         targetSetter(prev => [...prev, ...withIds]);
         withIds.forEach(r => { if (r.mainIngredients?.[0]) sameDayMain.push(r.mainIngredients[0]); });
-      } catch (e) { console.error(mealKey, e); }
+      } catch (e) {
+        console.error(mealKey, e);
+        failedMeals.push(mealLabelFor(mealKey, lang));
+      }
+    }
+    if (failedMeals.length > 0) {
+      const label = failedMeals.join(", ");
+      setGenerationError(
+        lang === "en"
+          ? `Couldn't create recipes for: ${label}. Please try again.`
+          : `Für ${label} konnten leider keine Rezepte erstellt werden. Bitte versuch's nochmal.`
+      );
     }
   }
 
   const generate = async (prefs, fridge = []) => {
     setLoading(true);
+    setGenerationError(null);
     // Bereits ausgewaehlte Rezepte (und "replaced"-Eintraege, die nur zum
     // Vermeiden von Wiederholungen dienen) bleiben erhalten - nur die noch
     // nicht ausgewaehlten Kandidaten der letzten Runde werden verworfen. Eine
@@ -89,7 +147,7 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
     // Neuer Plan startet immer bei heute - ein Rezept pro Tag. Die Personenzahl
     // aus dem Planungsdialog gilt fuer diesen Plan (ueberschreibt den Profil-Standard).
     const effectivePersons = Math.max(1, Number(prefs.persons) || persons);
-    const slots = buildSlots(prefs.days, 1, todayYMD());
+    const slots = buildSlots(prefs.days, prefs.daysPerRecipe || 1, todayYMD());
     await generateForMeals(prefs.meals, slots, prefs.moods, fridge, effectivePersons, {
       onProgress: setLoadingMeal, targetSetter: setRecipes,
     });
@@ -98,11 +156,12 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   const generateFridgeRecipes = async (prefs, fridge) => {
     setFridgeLoading(true);
+    setGenerationError(null);
     // Gleiches Prinzip wie bei generate(): bereits ausgewaehlte Kuehlschrank-
     // Rezepte bleiben erhalten, nur unausgewaehlte Kandidaten werden ersetzt.
     setFridgeRecipes(prev => prev.filter(r => r.status === "selected"));
     const effectivePersons = Math.max(1, Number(prefs.persons) || persons);
-    const slots = buildSlots(prefs.days, 1, todayYMD());
+    const slots = buildSlots(prefs.days, prefs.daysPerRecipe || 1, todayYMD());
     await generateForMeals(prefs.meals, slots, prefs.moods, fridge, effectivePersons, {
       targetSetter: setFridgeRecipes,
     });
@@ -122,12 +181,15 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
       const parsed = await fetchRecipes(prompt);
       if (parsed?.[0]) {
         const servings = slot.dates.length * effectivePersons;
+        const basePortions = Number(parsed[0].basePortions) || servings;
+        const nutrition = computeNutritionFromIngredients(parsed[0].ingredients, basePortions);
         const replacement = {
           ...parsed[0], mealKey: oldRecipe.mealKey, status: null, favorite: false, cooked: false, replaced: false,
           whyText: null, whySource: null, id: `${Date.now()}-${Math.random()}`,
           plannedDates: slot.dates, portions: servings,
-          basePortions: Number(parsed[0].basePortions) || servings,
+          basePortions,
           personsSnapshot: effectivePersons,
+          kcal: nutrition.kcal ?? parsed[0].kcal ?? null, protein: nutrition.protein ?? parsed[0].protein ?? null,
         };
         setRecipes(prev => [...prev.filter(r => r.id !== oldRecipe.id), replacement]);
       }
@@ -140,12 +202,14 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   const addOrUpdateListEntriesForRecipe = (recipe) => {
     const scaled = scaleIngredients(recipe, persons);
-    const categories = recipe.ingredientCategories || {};
-    const items = scaled.map(ing => {
-      const m = ing.match(/^([\d.,]+\s*(?:g|kg|ml|l|EL|TL|tbsp|tsp|Stk|Stück|Prise|Bund|Tasse|Scheibe[n]?)?)\s+(.+)$/i);
-      const name = m ? m[2] : ing;
-      return { name, amount: m ? m[1] : "", recipe: recipe.name, recipeId: recipe.id, category: lookupCategory(name, categories[name]), checked: false };
-    });
+    const items = scaled.map(ing => ({
+      name: ing.name,
+      amount: `${ing.amount || ""}${ing.unit ? " " + ing.unit : ""}`.trim(),
+      note: ing.note || null,
+      recipe: recipe.name, recipeId: recipe.id,
+      category: lookupCategory(ing.name, ing.category),
+      checked: false,
+    }));
     setShoppingList(prev => [...prev.filter(i => i.recipeId !== recipe.id), ...items]);
   };
 
@@ -243,20 +307,28 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
 
   // Das geladene "Hintergrund"-Resultat wird direkt im Recipe-Objekt gespeichert
   // (nicht nur in lokalem Component-State), damit es nach dem Zuklappen der
-  // Karte garantiert erhalten bleibt.
-  const updateWhy = (recipeId, text, source) => {
-    const updateFn = (list) => list.map(r => r.id === recipeId ? { ...r, whyText: text, whySource: source } : r);
+  // Karte garantiert erhalten bleibt. "errored" markiert Fehlertexte, damit ein
+  // erneuter Klick wirklich neu laedt statt nur den alten Fehler wieder anzuzeigen.
+  const updateWhy = (recipeId, text, source, errored = false) => {
+    const updateFn = (list) => list.map(r => r.id === recipeId ? { ...r, whyText: text, whySource: source, whyErrored: errored } : r);
     setRecipes(updateFn);
     setFridgeRecipes(updateFn);
-    setFavorites(prev => prev.map(f => f.recipe.id === recipeId ? { ...f, recipe: { ...f.recipe, whyText: text, whySource: source } } : f));
+    setFavorites(prev => prev.map(f => f.recipe.id === recipeId ? { ...f, recipe: { ...f.recipe, whyText: text, whySource: source, whyErrored: errored } } : f));
   };
 
   const clearUnselected = () => {
     setRecipes(prev => prev.filter(r => r.status === "selected" || r.replaced));
   };
 
+  // Abhaken muss nach dem NORMALISIERTEN Namen matchen, nicht nach dem exakten
+  // Text: die Einkaufsliste zeigt zusammengefuehrte Zeilen (z.B. "Zwiebel" aus
+  // "Zwiebeln" + "Rote Zwiebel" zweier Rezepte), der angezeigte Name muss also
+  // nicht woertlich mit irgendeinem rohen Zutateneintrag uebereinstimmen.
   const toggleChecked = (name) => {
-    setShoppingList(prev => prev.map(item => item.name === name ? { ...item, checked: !item.checked } : item));
+    const targetNorm = normalizeIngredientName(name);
+    setShoppingList(prev => prev.map(item =>
+      normalizeIngredientName(item.name) === targetNorm ? { ...item, checked: !item.checked } : item
+    ));
   };
 
   const removeChecked = () => {
@@ -269,7 +341,7 @@ export function useRecipeActions({ profile, lang, cycleDay, mealTargets, cycleLe
   };
 
   return {
-    recipes, shoppingList, favorites, loading, loadingMeal, fridgeRecipes, fridgeLoading,
+    recipes, shoppingList, favorites, loading, loadingMeal, fridgeRecipes, fridgeLoading, generationError,
     generate, generateFridgeRecipes, selectRecipe, deselectRecipe, selectAnyRecipe, replaceRecipe,
     toggleFavorite, toggleCooked, removeCookedRecipes, removeExpiredRecipes, changePortions, updateWhy,
     clearUnselected, toggleChecked, removeChecked, addSingleIngredient,
